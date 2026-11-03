@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nishon Poligoni">
+<meta name="theme-color" content="#11140f">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Nishon Poligoni</title>
+<script type="importmap">{ "imports": { "three": "./three.module.min.js" } }</script>
+<style>
+  :root {
+    --bg: #11140f; --panel: rgba(14,16,12,.62); --fg: #f1efe6; --muted: #b3ad9c; --acc: #e8b04a; --acc2: #ffd479; --red: #ff5b4a; --line: rgba(255,255,255,.16);
+    --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px); --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
+    color-scheme: dark;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); overscroll-behavior: none; }
+  body { font-family: -apple-system, "SF Pro Display", system-ui, "Segoe UI", sans-serif; -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+  [hidden] { display: none !important; }
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  button { font-family: inherit; touch-action: manipulation; cursor: pointer; }
+
+  /* Yuklanish */
+  #loading { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 30%, #2a2a1c, #0c0d0a 70%); }
+  #loading .box { width: min(360px, 80vw); text-align: center; }
+  #loading h1 { margin: 0 0 4px; font-size: 30px; font-weight: 900; letter-spacing: .08em; }
+  #loading h1 span { color: var(--acc); }
+  #loading p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  .bar { height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--acc), var(--acc2)); transition: width .2s; }
+  #loadPct { margin-top: 10px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+
+  /* Menyu */
+  .screen { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; touch-action: manipulation;
+    background: linear-gradient(90deg, rgba(8,9,7,.85) 0%, rgba(8,9,7,.55) 45%, rgba(8,9,7,0) 75%);
+    padding: calc(14px + var(--st)) max(24px, var(--sr)) calc(14px + var(--sb)) max(28px, var(--sl)); box-sizing: border-box; }
+  .menu { display: flex; flex-direction: column; gap: 12px; width: min(380px, 100%); }
+  .title { font-weight: 900; line-height: .9; letter-spacing: .04em; }
+  .title small { display: block; font-size: 13px; letter-spacing: .3em; color: var(--acc); margin-bottom: 6px; }
+  .title b { display: block; font-size: 44px; }
+  .tag { color: var(--muted); font-size: 14px; line-height: 1.45; margin: 0; }
+  .big { font-size: 20px; font-weight: 900; letter-spacing: .08em; padding: 15px; border-radius: 12px; border: 0;
+    background: linear-gradient(180deg, var(--acc2), var(--acc)); color: #2a1a00; box-shadow: 0 4px 0 #8d6420; }
+  .big:active { transform: translateY(2px); box-shadow: 0 2px 0 #8d6420; }
+  .ghost { font-size: 15px; font-weight: 700; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.07); color: var(--fg); }
+  .lbl { font-size: 11px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-bottom: -6px; }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .seg button { padding: 9px 4px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--fg); font-weight: 700; font-size: 13px; }
+  .seg button.on { background: var(--fg); color: #111; border-color: var(--fg); }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  .best { font-size: 13px; color: var(--acc2); font-weight: 700; }
+  @media (max-height: 430px) { .title b { font-size: 34px; } .menu { gap: 9px; } .big { padding: 12px; } .tag { display: none; } }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #top { position: absolute; top: calc(8px + var(--st)); left: 50%; transform: translateX(-50%); display: flex; gap: 14px; align-items: center;
+    background: var(--panel); border-radius: 10px; padding: 6px 14px; font-weight: 900; font-variant-numeric: tabular-nums; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  #score { font-size: 22px; color: var(--acc2); }
+  #timer { font-size: 22px; min-width: 44px; text-align: center; }
+  #timer.low { color: var(--red); }
+  #wave { font-size: 12px; color: var(--muted); font-weight: 700; max-width: 160px; }
+  #fps { position: absolute; top: calc(8px + var(--st)); right: max(12px, var(--sr)); font: 700 12px ui-monospace, Menlo, monospace; background: var(--panel); padding: 4px 7px; border-radius: 6px; }
+  #ammo { position: absolute; bottom: calc(12px + var(--sb)); left: 50%; transform: translateX(-50%); background: var(--panel); border-radius: 10px; padding: 6px 14px;
+    font-weight: 900; font-size: 20px; font-variant-numeric: tabular-nums; display: flex; gap: 12px; align-items: baseline; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  #ammo small { font-size: 13px; color: var(--muted); font-weight: 700; }
+  #cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+  #cross::before, #cross::after { content: ""; position: absolute; background: rgba(255,255,255,.9); box-shadow: 0 0 2px #000; }
+  #cross::before { left: 10px; top: 0; width: 2px; height: 22px; } #cross::after { top: 10px; left: 0; height: 2px; width: 22px; }
+  #hitPop { position: absolute; left: 50%; top: 42%; transform: translate(-50%, 0); font-weight: 900; font-size: 30px; color: var(--acc2); text-shadow: 0 2px 8px #000; opacity: 0; }
+  #banner { position: absolute; top: 24%; left: 0; right: 0; text-align: center; font-weight: 900; text-shadow: 0 3px 12px rgba(0,0,0,.8); opacity: 0; transition: opacity .25s; }
+  #banner b { display: block; font-size: 34px; letter-spacing: .04em; } #banner span { font-size: 16px; color: #eee; font-weight: 700; }
+  #scope { position: absolute; inset: 0; opacity: 0; transition: opacity .12s;
+    background: radial-gradient(circle at center, transparent 0, transparent 38vmin, rgba(0,0,0,.6) 38.6vmin, #000 40vmin); }
+  #scope::before, #scope::after { content: ""; position: absolute; background: #000; }
+  #scope::before { left: 50%; top: calc(50% - 38vmin); width: 2px; height: 76vmin; margin-left: -1px; }
+  #scope::after { top: 50%; left: calc(50% - 38vmin); height: 2px; width: 76vmin; margin-top: -1px; }
+  #scope i { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: #e3261b; box-shadow: 0 0 6px #ff3b2b; }
+
+  /* Sensorli boshqaruv */
+  #touch { position: fixed; inset: 0; z-index: 6; touch-action: none; }
+  .btn { position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); background: rgba(15,15,12,.38); color: #fff; font-weight: 900;
+    display: grid; place-items: center; -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); font-size: 12px; letter-spacing: .04em; }
+  .btn.on { background: rgba(232,176,74,.6); border-color: var(--acc2); }
+  #bFire { width: 92px; height: 92px; right: calc(26px + var(--sr)); bottom: calc(62px + var(--sb)); }
+  #bFire svg { width: 42px; height: 42px; }
+  #bFireL { width: 66px; height: 66px; left: calc(26px + var(--sl)); bottom: calc(80px + var(--sb)); }
+  #bAim { width: 62px; height: 62px; right: calc(130px + var(--sr)); bottom: calc(118px + var(--sb)); }
+  #bReload { width: 52px; height: 52px; right: calc(132px + var(--sr)); bottom: calc(42px + var(--sb)); font-size: 20px; }
+  #bSwitch { width: 52px; height: 52px; right: calc(46px + var(--sr)); bottom: calc(170px + var(--sb)); font-size: 18px; }
+  #bPause { width: 42px; height: 42px; left: calc(12px + var(--sl)); top: calc(8px + var(--st)); border-radius: 10px; font-size: 14px; }
+  #lookHint { position: absolute; left: 50%; bottom: calc(64px + var(--sb)); transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,.55); pointer-events: none; }
+
+  /* Modallar */
+  .modal { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(6,7,5,.72); touch-action: manipulation;
+    padding: calc(12px + var(--st)) max(20px, var(--sr)) calc(12px + var(--sb)) max(20px, var(--sl)); box-sizing: border-box; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  .card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 10px; text-align: center; }
+  .card h2 { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: .04em; }
+  .card p { margin: 0; color: var(--muted); line-height: 1.5; }
+  .stars { font-size: 34px; letter-spacing: 6px; color: var(--acc2); }
+  .stars .off { color: rgba(255,255,255,.2); }
+  .res { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 6px; }
+  .res div { background: rgba(255,255,255,.07); border-radius: 10px; padding: 8px 4px; }
+  .res b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; } .res span { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  #rotate { position: fixed; inset: 0; z-index: 70; background: var(--bg); display: grid; place-items: center; text-align: center; padding: 30px; }
+  #rotate div { font-size: 54px; animation: rot 1.6s ease-in-out infinite; } @keyframes rot { 50% { transform: rotate(-90deg); } }
+  #rotate p { font-size: 18px; font-weight: 700; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="loading">
+  <div class="box">
+    <h1>NISHON <span>POLIGONI</span></h1>
+    <p>3D modellar va teksturalar yuklanmoqda…<br>Birinchi marta biroz vaqt oladi.</p>
+    <div class="bar"><i id="loadBar"></i></div>
+    <div id="loadPct">0%</div>
+  </div>
+</div>
+
+<div id="hud" hidden>
+  <div id="top"><span id="score">0</span><span id="timer">60</span><span id="wave">1-bosqich</span></div>
+  <div id="fps">— FPS</div>
+  <div id="scope"><i></i></div>
+  <div id="cross"></div>
+  <div id="hitPop"></div>
+  <div id="banner"></div>
+  <div id="ammo"><span id="ammoN">5 / 5</span><small id="wName">Miltiq</small></div>
+</div>
+
+<div id="touch" hidden>
+  <div id="lookHint">Ekranni surib nishonga oling</div>
+  <button class="btn" id="bPause" data-act="pause" aria-label="Pauza">❚❚</button>
+  <button class="btn" id="bFireL" data-act="fire" aria-label="Otish">OT</button>
+  <button class="btn" id="bSwitch" data-act="switch" aria-label="Qurolni almashtirish">⇄</button>
+  <button class="btn" id="bAim" data-act="aim" aria-label="Optik nishon">PRIZEL</button>
+  <button class="btn" id="bReload" data-act="reload" aria-label="Qayta o'qlash">↻</button>
+  <button class="btn" id="bFire" data-act="fire" aria-label="Otish">
+    <svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="3"><circle cx="20" cy="20" r="12"/><path d="M20 2v10M20 28v10M2 20h10M28 20h10"/></svg>
+  </button>
+</div>
+
+<section id="menu" class="screen" hidden>
+  <div class="menu">
+    <div class="title"><small>OTISH MASHG'ULOTI</small><b>NISHON<br>POLIGONI</b></div>
+    <p class="tag">60 soniya, uch bosqich: qog'oz nishonlar, po'lat plitalar va harakatlanuvchi nishonlar. Markazga qancha yaqin tegsa — shuncha ko'p ochko.</p>
+    <div class="best" id="bestOut"></div>
+    <button id="playBtn" class="big" type="button">BOSHLASH</button>
+    <div class="lbl">Grafika sifati</div>
+    <div class="seg" id="qSeg">
+      <button type="button" data-q="auto">Avto</button>
+      <button type="button" data-q="low">Past</button>
+      <button type="button" data-q="medium">O'rta</button>
+      <button type="button" data-q="high">Yuqori</button>
+    </div>
+    <div class="lbl">Nishonga olish sezgirligi</div>
+    <input id="sens" type="range" min="0.4" max="2.5" step="0.1" value="1.1" aria-label="Sezgirlik">
+    <button id="helpBtn" class="ghost" type="button">Qanday o'ynaladi?</button>
+  </div>
+</section>
+
+<section id="help" class="modal" hidden>
+  <div class="card" style="text-align:left">
+    <h2 style="text-align:center">Boshqaruv</h2>
+    <p>👆 <b>Ekranni suring</b> — nishonga olish.<br>
+    🎯 <b>Katta tugma</b> yoki <b>OT</b> — otish.<br>
+    🔭 <b>PRIZEL</b> — optik nishon (miltiqda yaqinlashtiradi).<br>
+    ↻ — qayta o'qlash, ⇄ — miltiq / to'pponcha.<br>
+    💻 Kompyuterda: sichqoncha, chap tugma — otish, o'ng tugma — prizel, R, Q.</p>
+    <p>Qog'oz nishon: markazi 10 ochko. Po'lat plita: 5 ochko. Uzoqdagi nishon qo'shimcha ochko beradi.</p>
+    <button class="big" type="button" id="helpClose">TUSHUNARLI</button>
+  </div>
+</section>
+
+<section id="pause" class="modal" hidden>
+  <div class="card">
+    <h2>PAUZA</h2>
+    <button id="resumeBtn" class="big" type="button">DAVOM ETISH</button>
+    <button id="restartBtn" class="ghost" type="button">Qaytadan boshlash</button>
+    <button id="menuBtn" class="ghost" type="button">Bosh menyu</button>
+  </div>
+</section>
+
+<section id="over" class="modal" hidden>
+  <div class="card">
+    <h2>NATIJA</h2>
+    <div class="stars" id="stars"></div>
+    <div class="res">
+      <div><b id="rScore">0</b><span>Ochko</span></div>
+      <div><b id="rAcc">0%</b><span>Aniqlik</span></div>
+      <div><b id="rHits">0</b><span>Tegdi</span></div>
+    </div>
+    <p id="rBest"></p>
+    <button id="againBtn" class="big" type="button">YANA</button>
+    <button id="overMenuBtn" class="ghost" type="button">Bosh menyu</button>
+  </div>
+</section>
+
+<div id="rotate" hidden><div>📱</div><p>Telefonni yon tomonga burang</p></div>
+
+<script type="module" src="game.js"></script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
+</body>
+</html>

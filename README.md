@@ -49,3 +49,14 @@ Bosh ekranga qo'shilsa, ilova kabi to'liq ekranda ochiladi va **internetsiz ham*
 Birinchi shaxsdan 3D otishma: Ko'k jamoa (siz + 3 bot) Qizil jamoaga (4 bot) qarshi. 5 raundda birinchi yutgan g'olib.
 Telefonni yotqizib o'ynaladi. Chapda yurish joystigi, o'ngda nishonga olish, otish, qayta o'qlash va qurol almashtirish tugmalari.
 Bosh ekranga qo'shilsa, ilova kabi to'liq ekranda va internetsiz ishlaydi.
+
+---
+
+# Nishon Poligoni 🎯 — yuqori grafika
+
+**O'ynash:** https://aliyevshub.github.io/public-games/poligon/
+
+60 soniyalik otish mashg'uloti: qog'oz nishonlar, po'lat plitalar, harakatlanuvchi nishonlar. Miltiq (optik nishon bilan) va to'pponcha.
+Grafika: haqiqiy osmon panoramasi (HDR), fizikaga asoslangan materiallar, soyalar, real 3D modellar. Sifat: Avto / Past / O'rta / Yuqori, FPS hisoblagichi.
+
+3D modellar, teksturalar va osmon: [Poly Haven](https://polyhaven.com) — CC0 litsenziyasi.
