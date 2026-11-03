@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rangli Jo'ja">
+<meta name="theme-color" content="#ffc6e0">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Rangli Jo'ja</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #ffc6e0;
+    overscroll-behavior: none;
+  }
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #safe {
+    position: fixed; inset: 0; visibility: hidden; pointer-events: none;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Rangli Jo'ja o'yini"></canvas>
+<div id="safe"></div>
+<script>
+(() => {
+  'use strict';
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const safeEl = document.getElementById('safe');
+  const FONT = 'ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif';
+
+  // ---------- O'lcham: ekran qanday bo'lmasin, kamida 520×360 birlik ko'rinadi ----------
+  let W = 520, H = 360, GROUND = 280, S = 1, dpr = 1;
+  const safe = { t: 0, r: 0, b: 0, l: 0 };
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const cw = window.innerWidth, ch = window.innerHeight;
+    S = Math.min(cw / 520, ch / 360);
+    W = cw / S; H = ch / S;
+    GROUND = Math.round(H - Math.max(70, H * 0.22));
+    cv.width = Math.round(cw * dpr);
+    cv.height = Math.round(ch * dpr);
+    const cs = getComputedStyle(safeEl);
+    safe.t = parseFloat(cs.paddingTop) / S || 0;
+    safe.r = parseFloat(cs.paddingRight) / S || 0;
+    safe.b = parseFloat(cs.paddingBottom) / S || 0;
+    safe.l = parseFloat(cs.paddingLeft) / S || 0;
+  }
+  addEventListener('resize', resize);
+  addEventListener('orientationchange', () => setTimeout(resize, 200));
+  resize();
+
+  // ---------- Yordamchilar ----------
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+
+  let best = 0;
+  try { best = +localStorage.getItem('ranglijoja.best') || 0; } catch (e) {}
+  const saveBest = () => { try { localStorage.setItem('ranglijoja.best', String(best)); } catch (e) {} };
+
+  // ---------- Ovoz ----------
+  let actx = null, soundOn = true;
+  try { soundOn = localStorage.getItem('ranglijoja.sound') !== '0'; } catch (e) {}
+  function unlockAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  function sfx(type) {
+    if (!soundOn || !actx) return;
+    const cfg = {
+      jump:  ['sine',     500, 900, 0.14, 0.12],
+      jump2: ['sine',     750, 1300, 0.14, 0.12],
+      candy: ['triangle', 1000, 1700, 0.12, 0.12],
+      level: ['square',   600, 1200, 0.22, 0.06],
+      hit:   ['sawtooth', 320, 70, 0.4, 0.14],
+    }[type];
+    const t = actx.currentTime;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = cfg[0];
+    o.frequency.setValueAtTime(cfg[1], t);
+    o.frequency.exponentialRampToValueAtTime(cfg[2], t + cfg[3]);
+    g.gain.setValueAtTime(cfg[4], t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + cfg[3]);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + cfg[3]);
+  }
+
+  // ---------- Holat ----------
+  const P = { x: 80, y: 0, vy: 0, r: 22, onGround: true, jumps: 0, holdT: 0, squash: 0, run: 0 };
+  let state = 'menu', speed, dist, bonus, candies, score, nextSpawn, obs, sweets, parts, shake, overAt, flash, lastLevel, time = 0, holding = false;
+
+  function reset() {
+    speed = 300; dist = 0; bonus = 0; candies = 0; score = 0;
+    nextSpawn = 380; obs = []; sweets = []; parts = [];
+    shake = 0; flash = 0; lastLevel = 0;
+    P.y = GROUND; P.vy = 0; P.onGround = true; P.jumps = 0; P.holdT = 0; P.squash = 0;
+  }
+  reset();
+
+  function burst(x, y, n, hues, spd = 220, size = 4) {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2), s = rand(spd * 0.3, spd);
+      parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0, max: rand(0.4, 0.9),
+        hue: hues[Math.floor(Math.random() * hues.length)], size: rand(size * 0.5, size) });
+    }
+  }
+
+  // ---------- Boshqaruv: bitta barmoq ----------
+  function press() {
+    unlockAudio();
+    if (state === 'menu') { state = 'play'; reset(); return; }
+    if (state === 'over') {
+      if (performance.now() - overAt > 600) { state = 'play'; reset(); }
+      return;
+    }
+    holding = true;
+    if (P.onGround) {
+      P.vy = -760; P.onGround = false; P.jumps = 1; P.holdT = 0; P.squash = -0.5;
+      burst(P.x, GROUND, 8, [330, 45, 190], 140, 4);
+      sfx('jump');
+    } else if (P.jumps < 2) {
+      P.vy = -680; P.jumps = 2; P.holdT = 0;
+      burst(P.x, P.y - P.r, 14, [280, 330, 50, 160], 220, 5);
+      sfx('jump2');
+    }
+  }
+  function release() { holding = false; }
+
+  function soundButtonHit(clientX, clientY) {
+    const x = clientX / S, y = clientY / S;
+    return x < safe.l + 70 && y < safe.t + 70;
+  }
+
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (soundButtonHit(e.clientX, e.clientY)) {
+      soundOn = !soundOn; unlockAudio();
+      try { localStorage.setItem('ranglijoja.sound', soundOn ? '1' : '0'); } catch (err) {}
+      return;
+    }
+    press();
+  });
+  addEventListener('pointerup', release);
+  addEventListener('pointercancel', release);
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('dblclick', e => e.preventDefault());
+  addEventListener('keydown', e => {
+    if (['Space', 'ArrowUp', 'KeyW', 'Enter'].includes(e.code)) { e.preventDefault(); if (!e.repeat) press(); }
+    if (e.code === 'KeyM') soundOn = !soundOn;
+  });
+  addEventListener('keyup', e => { if (['Space', 'ArrowUp', 'KeyW', 'Enter'].includes(e.code)) release(); });
+
+  // ---------- To'siqlar va konfetlar ----------
+  function spawn() {
+    const x = W + 60;
+    const kind = Math.random();
+    if (kind < 0.45) {
+      const h = rand(40, score > 300 ? 78 : 60), rr = rand(15, 20);
+      obs.push({ t: 'lolly', x, w: rr * 2, h: h + rr, rr, stick: h, hue: rand(0, 360) });
+      if (score > 200 && Math.random() < 0.35) {
+        const h2 = rand(35, 55), r2 = rand(14, 18);
+        obs.push({ t: 'lolly', x: x + 46, w: r2 * 2, h: h2 + r2, rr: r2, stick: h2, hue: rand(0, 360) });
+      }
+    } else {
+      const n = 1 + Math.floor(Math.random() * (score > 150 ? 3 : 2));
+      obs.push({ t: 'blocks', x, w: 36, h: n * 26, n, hue: rand(0, 360) });
+    }
+    // to'siq ustida konfetlar yoyi
+    if (Math.random() < 0.5) {
+      const o = obs[obs.length - 1];
+      const cx = o.x + o.w / 2, top = GROUND - o.h;
+      for (let i = -1; i <= 1; i++) sweets.push({ x: cx + i * 40, y: top - 55 - (i === 0 ? 28 : 8), rot: rand(0, 6), hue: rand(0, 360) });
+    } else if (Math.random() < 0.35) {
+      for (let i = 0; i < 4; i++) sweets.push({ x: x + 220 + i * 34, y: GROUND - 30, rot: rand(0, 6), hue: rand(0, 360) });
+    }
+    nextSpawn = speed * rand(0.85, 1.6) + 170;
+  }
+
+  function hitRect(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+  function playerBox() {
+    const d = P.r * 2;
+    return { x: P.x - P.r + 6, y: P.y - d - 6 + 6, w: d - 12, h: d + 6 - 8 };
+  }
+  function obsBox(o) {
+    if (o.t === 'lolly') return { x: o.x + 3, y: GROUND - o.h + 3, w: o.w - 6, h: o.h - 3 };
+    return { x: o.x + 2, y: GROUND - o.h + 2, w: o.w - 4, h: o.h - 2 };
+  }
+
+  function die() {
+    state = 'over'; overAt = performance.now(); shake = 16; holding = false;
+    burst(P.x, P.y - P.r, 40, [50, 330, 190, 120], 360, 7);
+    sfx('hit');
+    if (navigator.vibrate) try { navigator.vibrate(80); } catch (e) {}
+    if (score > best) { best = score; saveBest(); }
+  }
+
+  // ---------- Yangilash ----------
+  function update(dt) {
+    time += dt;
+    shake = Math.max(0, shake - 50 * dt);
+    flash = Math.max(0, flash - dt * 2);
+    P.x = safe.l + Math.min(90, W * 0.16);
+
+    for (const p of parts) { p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 600 * dt; p.vx *= 0.98; }
+    parts = parts.filter(p => p.life < p.max);
+
+    if (state === 'menu') {
+      dist += 120 * dt;
+      P.run += dt * 8;
+      P.y = GROUND - Math.abs(Math.sin(time * 4)) * 14;
+      return;
+    }
+    if (state !== 'play') return;
+
+    const move = speed * dt;
+    dist += move;
+    speed = Math.min(640, 300 + score * 0.3);
+    score = Math.floor(dist / 10) + bonus;
+    const level = Math.floor(score / 100);
+    if (level > lastLevel) { lastLevel = level; flash = 1; sfx('level'); }
+
+    // fizika: uzoqroq bossangiz — balandroq sakraydi
+    let g = 2400;
+    if (holding && P.vy < 0 && P.holdT < 0.22) { g *= 0.4; P.holdT += dt; }
+    P.vy += g * dt;
+    P.y += P.vy * dt;
+    if (P.y >= GROUND) {
+      if (!P.onGround) { P.squash = 0.6; burst(P.x, GROUND, 6, [330, 45], 100, 3); }
+      P.y = GROUND; P.vy = 0; P.onGround = true; P.jumps = 0;
+    } else P.onGround = false;
+    P.squash *= Math.pow(0.001, dt);
+    P.run += dt * speed / 22;
+
+    nextSpawn -= move;
+    if (nextSpawn <= 0) spawn();
+    for (const o of obs) o.x -= move;
+    obs = obs.filter(o => o.x + o.w > -60);
+    for (const s of sweets) { s.x -= move; s.rot += dt * 3; }
+
+    const box = playerBox();
+    sweets = sweets.filter(s => {
+      if (hitRect(box, { x: s.x - 14, y: s.y - 12, w: 28, h: 24 })) {
+        bonus += 10; candies++;
+        burst(s.x, s.y, 12, [s.hue, 50, 0], 180, 4);
+        sfx('candy');
+        return false;
+      }
+      return s.x > -40;
+    });
+    for (const o of obs) if (hitRect(box, obsBox(o))) { die(); break; }
+  }
+
+  // ---------- Chizish ----------
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function text(s, x, y, size, color, align = 'center', weight = 800, outline = true) {
+    ctx.font = `${weight} ${size}px ${FONT}`;
+    ctx.textAlign = align; ctx.textBaseline = 'middle';
+    if (outline) {
+      ctx.lineJoin = 'round'; ctx.lineWidth = size * 0.22; ctx.strokeStyle = 'rgba(90,30,90,.55)';
+      ctx.strokeText(s, x, y);
+    }
+    ctx.fillStyle = color;
+    ctx.fillText(s, x, y);
+  }
+
+  function drawBackground(hue) {
+    const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
+    sky.addColorStop(0, `hsl(${hue},85%,80%)`);
+    sky.addColorStop(1, `hsl(${(hue + 50) % 360},95%,90%)`);
+    ctx.fillStyle = sky;
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+
+    // kamalak
+    const rx = W * 0.72 - (dist * 0.02) % (W + 400) + 200, ry = GROUND + 40;
+    const bands = [0, 30, 55, 120, 200, 270];
+    ctx.lineWidth = 10;
+    bands.forEach((bh, i) => {
+      ctx.strokeStyle = `hsla(${bh},95%,65%,.45)`;
+      ctx.beginPath(); ctx.arc(rx, ry, 200 - i * 10, Math.PI, 0); ctx.stroke();
+    });
+
+    // bulutlar
+    ctx.fillStyle = 'rgba(255,255,255,.8)';
+    for (let k = -1; k < 5; k++) {
+      const sp = 260, off = (dist * 0.08) % sp, idx = Math.floor(dist * 0.08 / sp) + k;
+      const x = k * sp - off + hash(idx) * 80, y = 50 + safe.t + hash(idx + 9) * Math.max(60, GROUND * 0.35), s = 0.7 + hash(idx + 3) * 0.6;
+      ctx.beginPath();
+      ctx.arc(x, y, 18 * s, 0, Math.PI * 2);
+      ctx.arc(x + 22 * s, y - 10 * s, 24 * s, 0, Math.PI * 2);
+      ctx.arc(x + 48 * s, y, 18 * s, 0, Math.PI * 2);
+      ctx.rect(x, y, 48 * s, 18 * s);
+      ctx.fill();
+    }
+
+    // shirin tepaliklar (3 qatlam)
+    const layers = [
+      { f: 0.15, sp: 170, r: 120, l: 78, hs: 140 },
+      { f: 0.3,  sp: 130, r: 85,  l: 72, hs: 220 },
+      { f: 0.55, sp: 100, r: 60,  l: 66, hs: 300 },
+    ];
+    for (const L of layers) {
+      const off = (dist * L.f) % L.sp, base = Math.floor(dist * L.f / L.sp);
+      for (let k = -1; k <= Math.ceil(W / L.sp) + 1; k++) {
+        const idx = base + k;
+        const r = L.r * (0.7 + hash(idx * 3 + L.sp) * 0.5);
+        ctx.fillStyle = `hsl(${(hue + L.hs + hash(idx) * 40) % 360},70%,${L.l}%)`;
+        ctx.beginPath(); ctx.arc(k * L.sp - off, GROUND + r * 0.35, r, Math.PI, 0); ctx.fill();
+      }
+    }
+  }
+
+  function drawGround(hue) {
+    // pechenye qatlami
+    const g = ctx.createLinearGradient(0, GROUND, 0, H);
+    g.addColorStop(0, '#d99a5b'); g.addColorStop(1, '#a8673a');
+    ctx.fillStyle = g;
+    ctx.fillRect(-20, GROUND, W + 40, H - GROUND + 20);
+    // pushti krem (to'lqinli)
+    ctx.fillStyle = `hsl(${(hue + 320) % 360},90%,82%)`;
+    ctx.beginPath();
+    ctx.moveTo(-20, GROUND - 4);
+    const off = dist % 40;
+    for (let x = -off - 40; x <= W + 40; x += 40) {
+      ctx.quadraticCurveTo(x + 10, GROUND + 18, x + 20, GROUND + 8);
+      ctx.quadraticCurveTo(x + 30, GROUND + 22, x + 40, GROUND + 6);
+    }
+    ctx.lineTo(W + 20, GROUND - 4);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.fillRect(-20, GROUND - 4, W + 40, 3);
+    // sepkilar (sprinkles)
+    const sp = 22, base = Math.floor(dist / sp), so = dist % sp;
+    for (let k = -1; k < W / sp + 2; k++) {
+      const idx = base + k;
+      for (let j = 0; j < 2; j++) {
+        const x = k * sp - so + hash(idx * 7 + j) * sp;
+        const y = GROUND + 28 + hash(idx * 13 + j) * (H - GROUND - 40);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(hash(idx + j * 5) * Math.PI);
+        ctx.fillStyle = `hsl(${hash(idx * 3 + j) * 360},90%,65%)`;
+        rr(-6, -2, 12, 4, 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawLolly(o) {
+    const cx = o.x + o.w / 2, top = GROUND - o.h;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#e8d8e8'; ctx.lineWidth = 1;
+    rr(cx - 3, top + o.rr, 6, o.stick, 3); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.translate(cx, top + o.rr);
+    ctx.fillStyle = `hsl(${o.hue},90%,62%)`;
+    ctx.beginPath(); ctx.arc(0, 0, o.rr, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `hsl(${(o.hue + 60) % 360},100%,88%)`; ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    for (let a = 0; a < Math.PI * 6; a += 0.2) {
+      const r = (a / (Math.PI * 6)) * (o.rr - 3);
+      const x = Math.cos(a + time * 2) * r, y = Math.sin(a + time * 2) * r;
+      a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath(); ctx.ellipse(-o.rr * 0.4, -o.rr * 0.45, o.rr * 0.25, o.rr * 0.15, -0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBlocks(o) {
+    for (let i = 0; i < o.n; i++) {
+      const y = GROUND - (i + 1) * 26, hue = (o.hue + i * 50) % 360;
+      ctx.fillStyle = `hsl(${hue},85%,62%)`;
+      rr(o.x, y, o.w, 25, 7); ctx.fill();
+      ctx.save(); rr(o.x, y, o.w, 25, 7); ctx.clip();
+      ctx.fillStyle = `hsla(${hue},100%,92%,.7)`;
+      for (let s = -30; s < o.w + 30; s += 12) {
+        ctx.beginPath(); ctx.moveTo(o.x + s, y + 25); ctx.lineTo(o.x + s + 6, y + 25); ctx.lineTo(o.x + s + 26, y); ctx.lineTo(o.x + s + 20, y); ctx.fill();
+      }
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,.4)';
+      rr(o.x + 4, y + 3, o.w - 8, 5, 2.5); ctx.fill();
+    }
+  }
+
+  function drawSweet(s) {
+    ctx.save(); ctx.translate(s.x, s.y + Math.sin(time * 4 + s.x * 0.05) * 3); ctx.rotate(Math.sin(s.rot) * 0.3);
+    ctx.fillStyle = `hsl(${(s.hue + 40) % 360},95%,72%)`;
+    for (const d of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(d * 8, 0); ctx.lineTo(d * 17, -8); ctx.lineTo(d * 17, 8); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = `hsl(${s.hue},95%,60%)`;
+    ctx.beginPath(); ctx.ellipse(0, 0, 11, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    ctx.beginPath(); ctx.ellipse(-4, -3, 4, 2.5, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawChick() {
+    const dead = state === 'over';
+    const r = P.r, x = P.x, by = P.y;
+    // soya
+    const h = clamp(1 - (GROUND - by) / 180, 0.3, 1);
+    ctx.fillStyle = 'rgba(80,30,60,.22)';
+    ctx.beginPath(); ctx.ellipse(x, GROUND + 3, r * 0.9 * h, 5 * h, 0, 0, Math.PI * 2); ctx.fill();
+
+    let sx = 1 + 0.25 * P.squash, sy = 1 - 0.25 * P.squash;
+    if (!P.onGround && state === 'play') { const st = clamp(-P.vy / 3000, -0.12, 0.18); sx -= st; sy += st; }
+
+    ctx.save();
+    ctx.translate(x, by);
+    // oyoqlar
+    ctx.strokeStyle = '#ff8a3d'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    const legA = P.onGround && !dead ? Math.sin(P.run) * 6 : 3;
+    ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(-6 + legA, 0); ctx.moveTo(6, -8); ctx.lineTo(6 - legA, 0); ctx.stroke();
+
+    ctx.scale(sx, sy);
+    const cy = -r - 6;
+    // tana
+    const g = ctx.createRadialGradient(-r * 0.3, cy - r * 0.4, r * 0.2, 0, cy, r * 1.1);
+    g.addColorStop(0, '#fff6a8'); g.addColorStop(1, '#ffc928');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 2; ctx.stroke();
+    // tepa pati
+    ctx.fillStyle = '#ffb000';
+    ctx.beginPath(); ctx.ellipse(-3, cy - r + 1, 4, 8, -0.4, 0, Math.PI * 2); ctx.ellipse(4, cy - r + 2, 3.5, 7, 0.4, 0, Math.PI * 2); ctx.fill();
+    // qanot
+    const flap = !P.onGround && !dead ? Math.sin(time * 30) * 0.7 : Math.sin(P.run) * 0.15;
+    ctx.save(); ctx.translate(-r * 0.45, cy + 4); ctx.rotate(-0.4 + flap);
+    ctx.fillStyle = '#ffb400';
+    ctx.beginPath(); ctx.ellipse(-4, 0, 11, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // ko'z
+    if (dead) {
+      ctx.strokeStyle = '#3a1640'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(4, cy - 9); ctx.lineTo(12, cy - 1); ctx.moveTo(12, cy - 9); ctx.lineTo(4, cy - 1); ctx.stroke();
+    } else {
+      const blink = (time % 3.5) < 0.1 ? 0.15 : 1;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.ellipse(8, cy - 5, 7, 8 * blink, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3a1640';
+      ctx.beginPath(); ctx.ellipse(10, cy - 4, 3.6, 4.4 * blink, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(11.5, cy - 6, 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+    // tumshuq
+    ctx.fillStyle = '#ff7a2f';
+    ctx.beginPath(); ctx.moveTo(r - 4, cy + 1); ctx.lineTo(r + 9, cy + 5); ctx.lineTo(r - 4, cy + 10); ctx.closePath(); ctx.fill();
+    // yonoq
+    ctx.fillStyle = 'rgba(255,100,140,.45)';
+    ctx.beginPath(); ctx.arc(4, cy + 8, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSoundIcon() {
+    const x = safe.l + 30, y = safe.t + 30;
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#7a2e7a';
+    ctx.beginPath(); ctx.moveTo(x - 9, y - 4); ctx.lineTo(x - 4, y - 4); ctx.lineTo(x + 2, y - 10); ctx.lineTo(x + 2, y + 10); ctx.lineTo(x - 4, y + 4); ctx.lineTo(x - 9, y + 4); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#7a2e7a'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (soundOn) { ctx.arc(x + 3, y, 6, -0.8, 0.8); ctx.moveTo(x + 8.5, y - 7); ctx.arc(x + 3, y, 10, -0.8, 0.8); }
+    else { ctx.moveTo(x + 6, y - 5); ctx.lineTo(x + 13, y + 5); ctx.moveTo(x + 13, y - 5); ctx.lineTo(x + 6, y + 5); }
+    ctx.stroke();
+  }
+
+  function draw() {
+    ctx.setTransform(S * dpr, 0, 0, S * dpr, 0, 0);
+    if (shake > 0) ctx.translate(rand(-shake, shake) * 0.4, rand(-shake, shake) * 0.4);
+    const hue = (300 + score * 0.4) % 360;
+
+    drawBackground(hue);
+    drawGround(hue);
+    for (const s of sweets) drawSweet(s);
+    for (const o of obs) o.t === 'lolly' ? drawLolly(o) : drawBlocks(o);
+    drawChick();
+
+    for (const p of parts) {
+      ctx.globalAlpha = 1 - p.life / p.max;
+      ctx.fillStyle = `hsl(${p.hue},95%,65%)`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * 0.25})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
+
+    // HUD
+    drawSoundIcon();
+    const R = W - safe.r - 18;
+    if (state !== 'menu') {
+      text(String(score), R, safe.t + 30, 32, '#fff', 'right');
+      text(`Rekord ${best}`, R, safe.t + 60, 15, '#fff', 'right', 700);
+      drawSweet({ x: safe.l + 78, y: safe.t + 30, rot: 0, hue: 330 });
+      text(`× ${candies}`, safe.l + 98, safe.t + 31, 20, '#fff', 'left');
+    }
+
+    const midY = Math.min(GROUND * 0.45, safe.t + (GROUND - safe.t) * 0.45);
+    if (state === 'menu') {
+      const bob = Math.sin(time * 3) * 4;
+      text("RANGLI JO'JA", W / 2, midY - 40 + bob, Math.min(54, W * 0.11), `hsl(${(time * 60) % 360},95%,70%)`);
+      ctx.globalAlpha = 0.85 + 0.15 * Math.sin(time * 5);
+      text('Boshlash uchun ekranga teging', W / 2, midY + 14, 22, '#fff6a8');
+      ctx.globalAlpha = 1;
+      text("Uzoqroq bossangiz — balandroq sakraydi", W / 2, midY + 46, 15, '#fff', 'center', 700);
+      text("Havoda yana teging — ikki karra sakrash", W / 2, midY + 68, 15, '#fff', 'center', 700);
+      if (best) text(`Rekord: ${best}`, W / 2, midY + 100, 16, '#fff6a8', 'center', 800);
+    }
+    if (state === 'over') {
+      ctx.fillStyle = 'rgba(90,30,90,.35)';
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+      text("VOY, URILDING!", W / 2, midY - 34, Math.min(46, W * 0.095), '#ff7ab8');
+      text(`Ochko: ${score}  ·  Konfet: ${candies}`, W / 2, midY + 12, 21, '#fff');
+      if (score >= best && score > 0) text('Yangi rekord! 🏆', W / 2, midY + 44, 20, '#fff6a8');
+      else text(`Rekord: ${best}`, W / 2, midY + 44, 17, '#fff', 'center', 700);
+      if (performance.now() - overAt > 600) {
+        ctx.globalAlpha = 0.85 + 0.15 * Math.sin(time * 5);
+        text('Qayta o\'ynash uchun teging', W / 2, midY + 84, 21, '#bff6ff');
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // ---------- Sikl ----------
+  let last = performance.now();
+  function loop(now) {
+    const dt = clamp((now - last) / 1000, 0, 0.034);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  document.addEventListener('visibilitychange', () => { last = performance.now(); holding = false; });
+})();
+</script>
+</body>
+</html>
