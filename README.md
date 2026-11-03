@@ -30,3 +30,12 @@ Internet orqali ikki kishi o'ynaydigan karta o'yini.
 3. Do'sti havolani ochadi yoki kodni kiritadi — o'yin boshlanadi.
 
 Qoidalar: har kimga 2 tadan karta. **Karta olish** yoki **To'xtash**. 21 ga eng yaqin to'plagan yutadi, 21 dan oshsa — yutqazadi. Tuz = 1 yoki 11, J/Q/K = 10. Kartalar har raundda halol aralashtiriladi.
+
+---
+
+# Yulduz Ovchisi ⭐ — iPhone ilovasi sifatida
+
+**O'ynash:** https://aliyevshub.github.io/public-games/yulduz/
+
+Yulduzlar yo'qolmasidan oldin ularni bosing. Oltin yulduz +3, bulut −3. Raund 30 soniya.
+Bosh ekranga qo'shilsa, ilova kabi to'liq ekranda ochiladi va **internetsiz ham** ishlaydi.
