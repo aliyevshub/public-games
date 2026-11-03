@@ -28,11 +28,35 @@
   #install button { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border: 0; border-radius: 50%;
     background: #ece6ff; color: #1d1450; font-size: 18px; font-weight: 800; }
   [hidden] { display: none !important; }
+  #pauseBtn {
+    position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+    width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255,255,255,.18); color: #fff;
+    font-size: 17px; font-weight: 900; letter-spacing: 1px; touch-action: manipulation; font-family: inherit;
+  }
+  #pauseBtn:active { background: rgba(255,255,255,.3); }
+  #pause { position: fixed; inset: 0; background: rgba(10,5,40,.72); display: grid; place-items: center; padding: 24px; touch-action: manipulation; }
+  #pause .box { width: min(300px, 100%); display: flex; flex-direction: column; gap: 12px; text-align: center; }
+  #pause h2 { margin: 0 0 6px; font-size: 32px; color: #ffe066; }
+  #pause button {
+    font-family: inherit; font-size: 19px; font-weight: 800; border: 0; border-radius: 16px; padding: 16px;
+    background: rgba(255,255,255,.14); color: #fff; touch-action: manipulation;
+  }
+  #pause button.main { background: #ffd23f; color: #2a1c00; }
+  #pause button:active { transform: scale(.97); }
 </style>
 </head>
 <body>
 <canvas id="c" aria-label="Yulduz Ovchisi o'yini"></canvas>
 <div id="safe"></div>
+<button id="pauseBtn" type="button" aria-label="Pauza" hidden>❚❚</button>
+<div id="pause" hidden>
+  <div class="box">
+    <h2>Pauza</h2>
+    <button id="resumeBtn" class="main" type="button">▶ Davom etish</button>
+    <button id="restartBtn" type="button">↻ Qaytadan boshlash</button>
+    <button id="menuBtn" type="button">⌂ Bosh menyu</button>
+  </div>
+</div>
 <div id="install" hidden>
   📲 <b>Ilova qilib o'rnatish:</b> pastdagi <b>Ulashish ⬆</b> tugmasini bosing va <b>"Bosh ekranga qo'shish"</b> ni tanlang.
   <button id="installClose" type="button" aria-label="Yopish">×</button>
@@ -82,9 +106,22 @@
 
   let hintWanted = false;
   const hintEl = () => document.getElementById('install');
+  const pauseBtn = document.getElementById('pauseBtn'), pauseEl = document.getElementById('pause');
+  function setUI() {
+    pauseBtn.hidden = state !== 'play';
+    pauseEl.hidden = state !== 'paused';
+  }
+  function pause() { if (state === 'play') { state = 'paused'; setUI(); } }
+  function resume() { if (state === 'paused') { state = 'play'; last = performance.now(); setUI(); } }
+  function toMenu() { state = 'menu'; stars = []; setUI(); if (hintWanted) hintEl().hidden = false; }
+  pauseBtn.onclick = () => { unlock(); pause(); };
+  document.getElementById('resumeBtn').onclick = resume;
+  document.getElementById('restartBtn').onclick = () => start();
+  document.getElementById('menuBtn').onclick = toMenu;
   function start() {
     hintEl().hidden = true;
-    state = 'play'; stars = []; parts = []; pops = []; score = 0; timeLeft = ROUND; spawnT = 0.3; combo = 0;
+    state = 'play';
+    setTimeout(setUI, 0); stars = []; parts = []; pops = []; score = 0; timeLeft = ROUND; spawnT = 0.3; combo = 0;
   }
 
   function spawn() {
@@ -157,6 +194,7 @@
       if (hintWanted) hintEl().hidden = false;
       if (score > best) { best = score; try { localStorage.setItem('yulduz.best', String(best)); } catch (e) {} }
       beep(500, 1000, 0.3, 0.1, 'square');
+      setUI();
       return;
     }
     spawnT -= dt;
@@ -237,7 +275,7 @@
     ctx.globalAlpha = 1;
 
     const cx = W / 2, cy = H * 0.4;
-    if (state === 'play' || state === 'over') {
+    if (state === 'play' || state === 'over' || state === 'paused') {
       text(String(score), safe.l + 20, safe.t + 36, 40, '#fff', 'left');
       text(`Rekord ${best}`, safe.l + 22, safe.t + 70, 15, '#d9c8ff', 'left', 700);
       const tl = Math.ceil(timeLeft);
@@ -283,7 +321,7 @@
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
-  document.addEventListener('visibilitychange', () => { last = performance.now(); });
+  document.addEventListener('visibilitychange', () => { last = performance.now(); if (document.hidden) pause(); });
 
   // ---------- iPhone: o'rnatish maslahati ----------
   const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;

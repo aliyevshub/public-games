@@ -1,5 +1,5 @@
 // Yulduz Ovchisi — internetsiz ishlash uchun kesh
-const CACHE = 'yulduz-v1';
+const CACHE = 'yulduz-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
