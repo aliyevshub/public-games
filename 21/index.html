@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="21 Ochko">
+<meta name="theme-color" content="#0a4a34">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>21 Ochko</title>
+<style>
+  :root {
+    --felt: #0f6b4a; --felt2: #0a4a34; --gold: #ffd23f; --ink: #13241c;
+    --card: #fffdf7; --red: #d7263d; --fg: #f4fff8; --muted: #a9d9c2; --chip: rgba(0,0,0,.28);
+    color-scheme: dark;
+  }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 38%, var(--felt) 0%, var(--felt2) 75%) fixed var(--felt2);
+    color: var(--fg);
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+    overscroll-behavior: none;
+  }
+  [hidden] { display: none !important; }
+  .app {
+    min-height: 100%; box-sizing: border-box; max-width: 560px; margin: 0 auto;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    display: flex; flex-direction: column;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+  .center { justify-content: center; text-align: center; }
+  h1 { margin: 0; font-size: 64px; line-height: 1; font-weight: 900; color: var(--gold); text-shadow: 0 4px 0 rgba(0,0,0,.25); }
+  h1 small { display: block; font-size: 22px; color: var(--fg); margin-top: 6px; letter-spacing: .08em; }
+  p { margin: 0; color: var(--muted); line-height: 1.45; }
+  .rules { background: var(--chip); border-radius: 16px; padding: 12px 14px; font-size: 14px; text-align: left; }
+  .rules b { color: var(--fg); }
+  label { font-size: 13px; color: var(--muted); text-align: left; display: flex; flex-direction: column; gap: 6px; }
+  input {
+    font-weight: 700; font-size: 20px; line-height: 1; font-family: inherit; color: var(--fg); background: rgba(0,0,0,.25);
+    border: 2px solid rgba(255,255,255,.15); border-radius: 14px; padding: 14px; outline: none; -webkit-user-select: text; user-select: text;
+  }
+  input:focus { border-color: var(--gold); }
+  #codeIn { text-align: center; font-size: 34px; letter-spacing: .3em; }
+  button {
+    font-weight: 800; font-size: 18px; line-height: 1; font-family: inherit; border: 0; border-radius: 16px; padding: 17px 16px; cursor: pointer;
+    transition: transform .1s, opacity .15s;
+  }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: default; transform: none; }
+  button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .primary { background: var(--gold); color: #2a1c00; box-shadow: 0 4px 0 #b8901a; }
+  .ghost { background: rgba(255,255,255,.12); color: var(--fg); }
+  .red { background: #ff6b6b; color: #2b0505; box-shadow: 0 4px 0 #b84343; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .code { font-size: 64px; font-weight: 900; letter-spacing: .18em; color: var(--gold); margin: 6px 0; }
+  .err { color: #ffb3b3; min-height: 20px; font-size: 14px; }
+  .spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(255,255,255,.2); border-top-color: var(--gold); margin: 6px auto; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* O'yin stoli */
+  .top { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 15px; }
+  .tally { background: var(--chip); border-radius: 999px; padding: 6px 14px; }
+  .tally b { color: var(--gold); }
+  .table { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
+  .seat { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .who { display: flex; gap: 8px; align-items: center; font-weight: 800; }
+  .total { background: var(--chip); border-radius: 999px; padding: 4px 12px; font-size: 18px; min-width: 24px; text-align: center; }
+  .total.bust { background: var(--red); }
+  .total.bj { background: var(--gold); color: #2a1c00; }
+  .status { font-size: 14px; color: var(--muted); min-height: 18px; }
+  .hand { display: flex; justify-content: center; min-height: 112px; padding: 0 30px; }
+  .card {
+    width: 76px; height: 108px; border-radius: 10px; background: var(--card); color: var(--ink);
+    box-shadow: 0 6px 14px rgba(0,0,0,.35); position: relative; margin-left: -28px; flex: none;
+  }
+  .hand .card:first-child { margin-left: 0; }
+  .card.new { animation: deal .35s ease-out both; }
+  .card .tl, .card .br { position: absolute; font-weight: 900; font-size: 19px; line-height: .95; text-align: center; }
+  .card .tl { top: 6px; left: 7px; }
+  .card .br { bottom: 6px; right: 7px; transform: rotate(180deg); }
+  .card .mid { position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; }
+  .card.redsuit { color: var(--red); }
+  .card.back { background: repeating-linear-gradient(45deg, #b3164b 0 8px, #d42a62 8px 16px); border: 4px solid #fff; box-sizing: border-box; }
+  .card.back::after { content: "21"; position: absolute; inset: 0; display: grid; place-items: center; font-weight: 900; font-size: 22px; color: rgba(255,255,255,.85); }
+  @keyframes deal { from { transform: translateY(-50px) rotate(-10deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .banner { text-align: center; font-size: 30px; font-weight: 900; min-height: 40px; display: grid; place-items: center; }
+  .banner.win { color: var(--gold); animation: pop .4s ease-out; }
+  .banner.lose { color: #ffb3b3; animation: pop .4s ease-out; }
+  .banner.draw { color: #cfe8ff; animation: pop .4s ease-out; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .actions.one { grid-template-columns: 1fr; }
+  .lost { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: grid; place-items: center; padding: 24px; z-index: 10; }
+  .lost div { background: var(--felt2); border-radius: 20px; padding: 24px; text-align: center; display: flex; flex-direction: column; gap: 14px; max-width: 320px; }
+  @media (max-height: 700px) {
+    .card { width: 64px; height: 92px; margin-left: -24px; }
+    .card .mid { font-size: 32px; } .hand { min-height: 96px; }
+    h1 { font-size: 52px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .card.new, .banner { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Bosh menyu -->
+  <section id="menu" class="screen center">
+    <h1>21<small>OCHKO</small></h1>
+    <p>Ikki telefonda, internet orqali</p>
+    <div class="rules">
+      <b>Qoidalar:</b> har biringizga 2 tadan karta beriladi. <b>Karta olish</b> yoki <b>To'xtash</b> ni tanlang.
+      21 ga eng yaqin to'plagan yutadi, 21 dan oshib ketsangiz — yutqazasiz.
+      Tuz (A) = 1 yoki 11, J/Q/K = 10.
+    </div>
+    <label for="nameIn">Ismingiz
+      <input id="nameIn" maxlength="14" placeholder="Masalan: Ali" autocomplete="off">
+    </label>
+    <button id="createBtn" class="primary" type="button">Xona yaratish</button>
+    <button id="joinBtn" class="ghost" type="button">Xonaga kirish (kod bilan)</button>
+    <div id="menuErr" class="err"></div>
+  </section>
+
+  <!-- Xona kodi kutish -->
+  <section id="wait" class="screen center" hidden>
+    <p>Xona kodi</p>
+    <div id="codeOut" class="code">----</div>
+    <p>Shu kodni yoki havolani do'stingizga yuboring.<br>U kirishi bilan o'yin boshlanadi.</p>
+    <button id="shareBtn" class="primary" type="button">Havolani yuborish</button>
+    <div id="shareMsg" class="err" style="color:var(--muted)"></div>
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Raqib kutilmoqda…</p>
+    <button class="ghost backBtn" type="button">Bekor qilish</button>
+  </section>
+
+  <!-- Kod kiritish -->
+  <section id="join" class="screen center" hidden>
+    <p>Do'stingiz bergan 4 xonali kodni kiriting</p>
+    <input id="codeIn" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+    <button id="joinGo" class="primary" type="button">Kirish</button>
+    <div id="joinErr" class="err"></div>
+    <button class="ghost backBtn" type="button">Orqaga</button>
+  </section>
+
+  <!-- Ulanmoqda -->
+  <section id="connecting" class="screen center" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="connMsg">Ulanmoqda…</p>
+    <button class="ghost backBtn" type="button">Bekor qilish</button>
+  </section>
+
+  <!-- O'yin -->
+  <section id="game" class="screen" hidden>
+    <div class="top">
+      <span id="roundOut">1-raund</span>
+      <span class="tally">Siz <b id="wMe">0</b> : <b id="wOpp">0</b> <span id="oppNameTop">Raqib</span></span>
+    </div>
+    <div class="table">
+      <div class="seat">
+        <div class="who"><span id="oppName">Raqib</span><span id="oppTotal" class="total">?</span></div>
+        <div id="oppHand" class="hand"></div>
+        <div id="oppStatus" class="status"></div>
+      </div>
+      <div id="banner" class="banner"></div>
+      <div class="seat">
+        <div id="myStatus" class="status"></div>
+        <div id="myHand" class="hand"></div>
+        <div class="who"><span>Siz</span><span id="myTotal" class="total">0</span></div>
+      </div>
+    </div>
+    <div id="playActions" class="actions">
+      <button id="hitBtn" class="primary" type="button">Karta olish</button>
+      <button id="standBtn" class="red" type="button">To'xtash</button>
+    </div>
+    <div id="nextActions" class="actions one" hidden>
+      <button id="nextBtn" class="primary" type="button">Keyingi raund</button>
+    </div>
+  </section>
+</div>
+
+<div id="lost" class="lost" hidden>
+  <div>
+    <b id="lostTitle" style="font-size:20px">Aloqa uzildi</b>
+    <p id="lostMsg">Raqib o'yindan chiqib ketdi yoki internet uzildi.</p>
+    <button class="primary backBtn" type="button">Bosh menyu</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const PREFIX = 'aliyevshub-21-';
+  const SCREENS = ['menu', 'wait', 'join', 'connecting', 'game'];
+  const show = s => SCREENS.forEach(k => $(k).hidden = k !== s);
+
+  // ---------- Karta mantig'i (halol aralashtirish) ----------
+  const SUITS = ['♠', '♥', '♦', '♣'];
+  const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  function randInt(n) { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; }
+  function newDeck() {
+    const d = [];
+    for (const s of SUITS) for (const r of RANKS) d.push({ r, s });
+    for (let i = d.length - 1; i > 0; i--) { const j = randInt(i + 1); [d[i], d[j]] = [d[j], d[i]]; }
+    return d;
+  }
+  function value(hand) {
+    let t = 0, aces = 0;
+    for (const c of hand) {
+      if (c.r === 'A') { t += 11; aces++; }
+      else if (c.r === 'J' || c.r === 'Q' || c.r === 'K') t += 10;
+      else t += Number(c.r);
+    }
+    while (t > 21 && aces) { t -= 10; aces--; }
+    return t;
+  }
+
+  // ---------- Ism ----------
+  try { $('nameIn').value = localStorage.getItem('21.name') || ''; } catch (e) {}
+  const myName = () => ($('nameIn').value.trim() || 'O\'yinchi').slice(0, 14);
+  $('nameIn').addEventListener('change', () => { try { localStorage.setItem('21.name', $('nameIn').value.trim()); } catch (e) {} });
+
+  // ---------- Tarmoq ----------
+  let peer = null, conn = null, role = null, G = null, oppName = 'Raqib', roomCode = '', ended = false;
+
+  function peerOk() {
+    if (typeof Peer === 'undefined') { $('menuErr').textContent = 'Ulanish kutubxonasi yuklanmadi. Internetni tekshirib, sahifani yangilang.'; return false; }
+    return true;
+  }
+
+  function friendlyError(err) {
+    const t = err && err.type;
+    if (t === 'peer-unavailable') return 'Bunday xona topilmadi. Kodni tekshiring yoki do\'stingiz xona yaratganiga ishonch hosil qiling.';
+    if (t === 'network' || t === 'server-error' || t === 'socket-error' || t === 'socket-closed') return 'Ulanish serveriga ulanib bo\'lmadi. Internetni tekshirib, qayta urinib ko\'ring.';
+    if (t === 'browser-incompatible') return 'Bu brauzer ulanishni qo\'llamaydi. Safari yoki Chrome\'da oching.';
+    return 'Ulanishda xato yuz berdi. Qayta urinib ko\'ring.';
+  }
+
+  function createRoom() {
+    if (!peerOk()) return;
+    role = 'h';
+    roomCode = String(1000 + randInt(9000));
+    $('codeOut').textContent = '····';
+    show('wait');
+    peer = new Peer(PREFIX + roomCode, { debug: 0 });
+    peer.on('open', () => { $('codeOut').textContent = roomCode; });
+    peer.on('connection', c => {
+      if (conn) { c.on('open', () => c.close()); return; }
+      conn = c; wire();
+    });
+    peer.on('error', err => {
+      if (err.type === 'unavailable-id') { peer.destroy(); createRoom(); return; }
+      if (!conn) { cleanup(); show('menu'); $('menuErr').textContent = friendlyError(err); }
+    });
+  }
+
+  function joinRoom(code) {
+    if (!peerOk()) return;
+    role = 'g'; roomCode = code;
+    $('connMsg').textContent = `${code} xonasiga ulanmoqda…`;
+    show('connecting');
+    peer = new Peer({ debug: 0 });
+    peer.on('open', () => { conn = peer.connect(PREFIX + code, { reliable: true }); wire(); });
+    peer.on('error', err => { cleanup(); show('join'); $('joinErr').textContent = friendlyError(err); });
+    setTimeout(() => {
+      if (role === 'g' && !G && !$('connecting').hidden) { cleanup(); show('join'); $('joinErr').textContent = 'Ulanish juda uzoq davom etdi. Kodni tekshirib, qayta urinib ko\'ring.'; }
+    }, 20000);
+  }
+
+  let lastSeen = 0, beat = null;
+  function wire() {
+    conn.on('open', () => {
+      conn.send({ t: 'hello', name: myName() });
+      lastSeen = Date.now();
+      clearInterval(beat);
+      beat = setInterval(() => {
+        if (!conn || !conn.open) return;
+        try { conn.send({ t: 'ping' }); } catch (e) {}
+        if (Date.now() - lastSeen > 9000) lost();
+      }, 2000);
+    });
+    conn.on('data', m => { lastSeen = Date.now(); onData(m); });
+    conn.on('close', lost);
+    conn.on('error', lost);
+  }
+
+  function onData(m) {
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'hello') {
+      oppName = String(m.name || 'Raqib').slice(0, 14);
+      if (role === 'h' && !G) startMatch();
+      return;
+    }
+    if (role === 'h' && m.t === 'act') act('g', m.a);
+    if (role === 'g' && m.t === 'view') { show('game'); render(m.v); }
+  }
+
+  function lost() {
+    if (ended) return;
+    ended = true;
+    clearInterval(beat);
+    if (G || role === 'g') $('lost').hidden = false;
+  }
+
+  function cleanup() {
+    ended = true;
+    clearInterval(beat);
+    try { if (conn) { conn.removeAllListeners(); conn.close(); } } catch (e) {}
+    try { if (peer) { peer.removeAllListeners(); peer.destroy(); } } catch (e) {}
+    peer = null; conn = null; G = null; role = null; ended = false;
+    lastCounts = { me: 0, opp: 0, round: 0 };
+  }
+
+  // ---------- O'yin holati (xona egasi telefonida) ----------
+  function startMatch() {
+    G = { round: 0, wins: { h: 0, g: 0, d: 0 } };
+    newRound();
+  }
+  function newRound() {
+    G.round++;
+    G.deck = newDeck();
+    G.hands = { h: [G.deck.pop(), G.deck.pop()], g: [G.deck.pop(), G.deck.pop()] };
+    G.st = { h: 'play', g: 'play' };
+    G.phase = 'play'; G.ready = { h: false, g: false }; G.result = null;
+    for (const p of ['h', 'g']) if (value(G.hands[p]) === 21) G.st[p] = 'stand';
+    checkEnd(); sync();
+  }
+  function act(p, a) {
+    if (!G) return;
+    if (a === 'hit' && G.phase === 'play' && G.st[p] === 'play') {
+      G.hands[p].push(G.deck.pop());
+      const v = value(G.hands[p]);
+      if (v > 21) G.st[p] = 'bust'; else if (v === 21) G.st[p] = 'stand';
+    } else if (a === 'stand' && G.phase === 'play' && G.st[p] === 'play') {
+      G.st[p] = 'stand';
+    } else if (a === 'next' && G.phase === 'result') {
+      G.ready[p] = true;
+      if (G.ready.h && G.ready.g) { newRound(); return; }
+    }
+    checkEnd(); sync();
+  }
+  function checkEnd() {
+    if (G.phase !== 'play' || G.st.h === 'play' || G.st.g === 'play') return;
+    G.phase = 'result';
+    const vh = value(G.hands.h), vg = value(G.hands.g), bh = vh > 21, bg = vg > 21;
+    let w;
+    if (bh && bg) w = 'd'; else if (bh) w = 'g'; else if (bg) w = 'h';
+    else if (vh > vg) w = 'h'; else if (vg > vh) w = 'g'; else w = 'd';
+    G.result = w; G.wins[w]++;
+  }
+  function viewFor(p) {
+    const o = p === 'h' ? 'g' : 'h', reveal = G.phase === 'result';
+    return {
+      round: G.round, phase: G.phase,
+      me: G.hands[p], meTotal: value(G.hands[p]), meSt: G.st[p],
+      opp: reveal ? G.hands[o] : G.hands[o].map((c, i) => i === 0 ? c : null),
+      oppTotal: reveal ? value(G.hands[o]) : null,
+      oppSt: reveal ? G.st[o] : (G.st[o] === 'play' ? 'play' : 'done'),
+      result: G.result ? (G.result === 'd' ? 'draw' : G.result === p ? 'win' : 'lose') : null,
+      wins: { me: G.wins[p], opp: G.wins[o] },
+      readyMe: G.ready[p], readyOpp: G.ready[o],
+    };
+  }
+  function sync() {
+    show('game');
+    render(viewFor('h'));
+    if (conn && conn.open) conn.send({ t: 'view', v: viewFor('g') });
+  }
+  function doAct(a) {
+    if (role === 'h') act('h', a);
+    else if (conn && conn.open) conn.send({ t: 'act', a });
+  }
+
+  // ---------- Chizish ----------
+  let lastCounts = { me: 0, opp: 0, round: 0 };
+  function cardHTML(c, isNew) {
+    if (!c) return `<div class="card back${isNew ? ' new' : ''}"></div>`;
+    const red = c.s === '♥' || c.s === '♦';
+    return `<div class="card${red ? ' redsuit' : ''}${isNew ? ' new' : ''}">
+      <div class="tl">${c.r}<br>${c.s}</div><div class="mid">${c.s}</div><div class="br">${c.r}<br>${c.s}</div></div>`;
+  }
+  function hand(el, cards, prev) {
+    el.innerHTML = cards.map((c, i) => cardHTML(c, i >= prev)).join('');
+  }
+  function render(v) {
+    if (v.round !== lastCounts.round) lastCounts = { me: 0, opp: 0, round: v.round };
+    hand($('myHand'), v.me, lastCounts.me);
+    hand($('oppHand'), v.opp, lastCounts.opp);
+    lastCounts.me = v.me.length; lastCounts.opp = v.opp.length;
+
+    $('roundOut').textContent = `${v.round}-raund`;
+    $('wMe').textContent = v.wins.me; $('wOpp').textContent = v.wins.opp;
+    $('oppName').textContent = oppName; $('oppNameTop').textContent = oppName;
+
+    const mt = $('myTotal');
+    mt.textContent = v.meTotal;
+    mt.className = 'total' + (v.meTotal > 21 ? ' bust' : v.meTotal === 21 ? ' bj' : '');
+    const ot = $('oppTotal');
+    ot.textContent = v.oppTotal == null ? '?' : v.oppTotal;
+    ot.className = 'total' + (v.oppTotal > 21 ? ' bust' : v.oppTotal === 21 ? ' bj' : '');
+
+    const playing = v.phase === 'play';
+    $('playActions').hidden = !playing;
+    $('nextActions').hidden = playing;
+    $('hitBtn').disabled = $('standBtn').disabled = v.meSt !== 'play';
+
+    let my = '';
+    if (playing) my = v.meSt === 'bust' ? 'Oshib ketdingiz! Raqib kutilmoqda…' : v.meSt === 'stand' ? (v.meTotal === 21 ? '21! Raqib kutilmoqda…' : 'To\'xtadingiz. Raqib kutilmoqda…') : 'Sizning navbatingiz';
+    else my = v.meSt === 'bust' ? 'Oshib ketdingiz' : '';
+    $('myStatus').textContent = my;
+
+    let op = '';
+    if (playing) op = v.oppSt === 'play' ? 'O\'ylayapti…' : 'Tayyor ✓';
+    else op = v.oppSt === 'bust' ? 'Oshib ketdi' : '';
+    $('oppStatus').textContent = op;
+
+    const b = $('banner');
+    if (v.result) {
+      const txt = { win: 'SIZ YUTDINGIZ! 🎉', lose: `${oppName.toUpperCase()} YUTDI`, draw: 'DURRANG' }[v.result];
+      if (b.textContent !== txt) { b.textContent = txt; b.className = 'banner ' + v.result; if (v.result === 'win' && navigator.vibrate) try { navigator.vibrate([60, 40, 60]); } catch (e) {} }
+    } else { b.textContent = ''; b.className = 'banner'; }
+
+    const nb = $('nextBtn');
+    nb.disabled = !!v.readyMe;
+    nb.textContent = v.readyMe ? 'Raqib kutilmoqda…' : (v.readyOpp ? 'Keyingi raund (raqib tayyor)' : 'Keyingi raund');
+  }
+
+  // ---------- Tugmalar ----------
+  $('createBtn').onclick = () => { $('menuErr').textContent = ''; createRoom(); };
+  $('joinBtn').onclick = () => { $('joinErr').textContent = ''; show('join'); setTimeout(() => $('codeIn').focus(), 50); };
+  $('codeIn').addEventListener('input', () => { $('codeIn').value = $('codeIn').value.replace(/\D/g, '').slice(0, 4); });
+  const goJoin = () => {
+    const c = $('codeIn').value;
+    if (!/^\d{4}$/.test(c)) { $('joinErr').textContent = '4 xonali kodni kiriting.'; return; }
+    $('joinErr').textContent = ''; joinRoom(c);
+  };
+  $('joinGo').onclick = goJoin;
+  $('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') goJoin(); });
+  $('hitBtn').onclick = () => doAct('hit');
+  $('standBtn').onclick = () => doAct('stand');
+  $('nextBtn').onclick = () => doAct('next');
+  document.querySelectorAll('.backBtn').forEach(btn => btn.onclick = () => {
+    cleanup(); $('lost').hidden = true;
+    history.replaceState(null, '', location.pathname);
+    show('menu');
+  });
+  $('shareBtn').onclick = async () => {
+    if (!/^\d{4}$/.test($('codeOut').textContent)) return;
+    const url = location.origin + location.pathname + '#' + roomCode;
+    const text = `Men bilan 21 o'yna! Xona kodi: ${roomCode}`;
+    try {
+      if (navigator.share) { await navigator.share({ title: '21 Ochko', text, url }); return; }
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      $('shareMsg').textContent = 'Havola nusxalandi — Telegram\'ga joylang.';
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      $('shareMsg').textContent = url;
+    }
+  };
+
+  // Havola orqali kelgan bo'lsa (#1234) — kod tayyor
+  const m = location.hash.match(/^#(\d{4})$/);
+  if (m) { $('codeIn').value = m[1]; show('join'); }
+})();
+</script>
+</body>
+</html>

@@ -16,3 +16,17 @@ Lolipop va konfet bloklaridan sakrab o'ting, konfetlarni yig'ing (+10 ochko). Te
 1. Havolani **Safari**'da oching.
 2. **Ulashish** tugmasini bosing.
 3. **"Bosh ekranga qo'shish"** ni tanlang — o'yin ilova kabi to'liq ekranda ochiladi.
+
+---
+
+# 21 Ochko 🃏 — ikki telefonda
+
+Internet orqali ikki kishi o'ynaydigan karta o'yini.
+
+**O'ynash:** https://aliyevshub.github.io/public-games/21/
+
+1. Birinchi o'yinchi **"Xona yaratish"** ni bosadi va 4 xonali kod oladi.
+2. **"Havolani yuborish"** orqali kodni do'stiga (masalan, Telegram'da) yuboradi.
+3. Do'sti havolani ochadi yoki kodni kiritadi — o'yin boshlanadi.
+
+Qoidalar: har kimga 2 tadan karta. **Karta olish** yoki **To'xtash**. 21 ga eng yaqin to'plagan yutadi, 21 dan oshsa — yutqazadi. Tuz = 1 yoki 11, J/Q/K = 10. Kartalar har raundda halol aralashtiriladi.
