@@ -63,7 +63,7 @@ Grafika: haqiqiy osmon panoramasi (HDR), fizikaga asoslangan materiallar, soyala
 
 ---
 
-# Neon To'plar 🟣 — g'isht sindirish
+# Neon Balls 🟣 — g'isht sindirish
 
 **O'ynash:** https://aliyevshub.github.io/public-games/toplar/
 
