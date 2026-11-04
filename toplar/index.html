@@ -17,7 +17,7 @@
   :root {
     --bg: #f3f1f7; --fg: #24132b; --muted: #7d7186; --card: #ffffff; --line: rgba(36,19,43,.1);
     --acc: #845591; --acc2: #c9a0dc; --ball: #24132b; --edge: rgba(132,85,145,.55); --edgeTop: rgba(132,85,145,.22);
-    --pick: #845591; --danger: #d4466a; --shadow: 0 10px 28px rgba(60,30,80,.12); --chip: rgba(36,19,43,.06);
+    --pick: #845591; --danger: #d4466a; --win: #16A34A; --shadow: 0 10px 28px rgba(60,30,80,.12); --chip: rgba(36,19,43,.06);
     --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px); --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
     color-scheme: light;
   }
@@ -25,7 +25,7 @@
   :root.dark {
     --bg: #0d0b12; --fg: #f3eef6; --muted: #9c90a6; --card: #1b1622; --line: rgba(255,255,255,.1);
     --acc: #c9a0dc; --acc2: #845591; --ball: #f3eef6; --edge: rgba(201,160,220,.6); --edgeTop: rgba(201,160,220,.25);
-    --pick: #c9a0dc; --danger: #ff6b8b; --shadow: 0 10px 28px rgba(0,0,0,.5); --chip: rgba(255,255,255,.08);
+    --pick: #c9a0dc; --danger: #ff6b8b; --win: #2EE59D; --shadow: 0 10px 28px rgba(0,0,0,.5); --chip: rgba(255,255,255,.08);
     color-scheme: dark;
   }
   html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--bg); }
@@ -69,9 +69,12 @@
     display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; pointer-events: none; }
   #hud > * { pointer-events: auto; }
   .scores { text-align: center; line-height: 1.05; }
-  .scores .rec { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-  .scores .rec b { color: var(--acc); font-size: 14px; }
-  .scores .cur { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .scores .lbl { font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+  .scores .cur { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; transition: color .25s; }
+  .scores .cur.win { color: var(--win); animation: winpop .45s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes winpop { 40% { transform: scale(1.22); } }
+  .scores .rec { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
+  .scores .rec b { color: var(--fg); font-size: 13px; font-variant-numeric: tabular-nums; }
   #fastBtn { position: fixed; right: max(14px, var(--sr)); bottom: calc(12px + var(--sb)); z-index: 5; height: 52px; padding: 0 16px; gap: 6px;
     display: flex; align-items: center; border-radius: 16px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); touch-action: none; }
   #fastBtn svg { width: 22px; height: 22px; stroke: var(--fg); fill: none; stroke-width: 2.2; stroke-linejoin: round; }
@@ -122,8 +125,9 @@
 <div id="hud" hidden>
   <button class="icon-btn" id="pauseBtn" type="button" data-i18n-aria="pause"><svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg></button>
   <div class="scores">
-    <div class="rec"><span data-i18n="best">Best</span> <b id="recOut">0</b></div>
+    <div class="lbl" data-i18n="score">Score</div>
     <div class="cur" id="scoreOut">0</div>
+    <div class="rec"><span data-i18n="record">Record</span> <b id="recOut">0</b></div>
   </div>
   <span></span>
 </div>
@@ -224,7 +228,7 @@
   const T = {
     en: { best: 'Best', continue: 'CONTINUE', play: 'PLAY', paused: 'Paused', resume: 'Resume', restart: 'Restart', settings: 'Settings', menu: 'Menu',
       music: 'Music', sfx: 'Sound effects', volume: 'Volume', dark: 'Dark mode', lang: 'Language', done: 'Done', back: 'Back', next: 'Next ›', got: 'Got it ✓',
-      over: 'Game over', score: 'Score', newrec: '🎉 New record!', again: 'Play again', mainmenu: 'Main menu', pause: 'Pause', fast: 'Hold for 2x speed', howto: 'How to play',
+      over: 'Game over', score: 'Score', record: 'Record', newrec: '🎉 New record!', again: 'Play again', mainmenu: 'Main menu', pause: 'Pause', fast: 'Hold for 2x speed', howto: 'How to play',
       bonuses: 'Bonuses', b1: 'Red ball', b1d: 'Hit it — +1 ball on your next shot.', b3: 'Every 3 drops', b3d: '+1 ball is added automatically.',
       bm: 'Score bonuses', bmd: 'When your score reaches these numbers, a big red bonus ring appears among the bricks. Hit it!',
       pts: 'points', balls: 'balls', maxd: 'The biggest prize of the game.', gotIt: 'received', soon: 'not yet',
@@ -234,7 +238,7 @@
           ['Don\'t let them reach the bottom', 'After every shot the bricks move down one row. If a brick reaches the bottom line, the game ends. Hold 2x to speed up.']] },
     uz: { best: 'Rekord', continue: 'DAVOM ETISH', play: 'BOSHLASH', paused: 'Pauza', resume: 'Davom etish', restart: 'Qaytadan boshlash', settings: 'Sozlamalar', menu: 'Menyu',
       music: 'Musiqa', sfx: 'Ovoz effektlari', volume: 'Balandlik', dark: 'Qorong\'i rejim', lang: 'Til', done: 'Tayyor', back: 'Orqaga', next: 'Keyingi ›', got: 'Tushunarli ✓',
-      over: 'O\'yin tugadi', score: 'Ball', newrec: '🎉 Yangi rekord!', again: 'Qaytadan', mainmenu: 'Bosh menyu', pause: 'Pauza', fast: '2x tezlik uchun bosib turing', howto: 'Qanday o\'ynaladi',
+      over: 'O\'yin tugadi', score: 'Ball', record: 'Rekord', newrec: '🎉 Yangi rekord!', again: 'Qaytadan', mainmenu: 'Bosh menyu', pause: 'Pauza', fast: '2x tezlik uchun bosib turing', howto: 'Qanday o\'ynaladi',
       bonuses: 'Bonuslar', b1: 'Qizil shar', b1d: 'Ursangiz — keyingi otishda +1 to\'p.', b3: 'Har 3 tushishda', b3d: '+1 to\'p avtomatik qo\'shiladi.',
       bm: 'Ball bonuslari', bmd: 'Ballingiz shu sonlarga yetganda, g\'ishtlar orasida katta qizil bonus halqa paydo bo\'ladi. Uni uring!',
       pts: 'ball', balls: 'to\'p', maxd: 'O\'yindagi eng katta sovrin.', gotIt: 'olingan', soon: 'hali yo\'q',
@@ -244,7 +248,7 @@
           ['Pastga tushirmang', 'Har otishdan keyin g\'ishtlar bir qator pastga tushadi. G\'isht pastki chiziqqa yetsa — o\'yin tugaydi. 2x ni bosib tursangiz, tezlashadi.']] },
     ru: { best: 'Рекорд', continue: 'ПРОДОЛЖИТЬ', play: 'ИГРАТЬ', paused: 'Пауза', resume: 'Продолжить', restart: 'Начать заново', settings: 'Настройки', menu: 'Меню',
       music: 'Музыка', sfx: 'Звуковые эффекты', volume: 'Громкость', dark: 'Тёмная тема', lang: 'Язык', done: 'Готово', back: 'Назад', next: 'Далее ›', got: 'Понятно ✓',
-      over: 'Игра окончена', score: 'Очки', newrec: '🎉 Новый рекорд!', again: 'Ещё раз', mainmenu: 'Главное меню', pause: 'Пауза', fast: 'Удерживайте для скорости 2x', howto: 'Как играть',
+      over: 'Игра окончена', score: 'Очки', record: 'Рекорд', newrec: '🎉 Новый рекорд!', again: 'Ещё раз', mainmenu: 'Главное меню', pause: 'Пауза', fast: 'Удерживайте для скорости 2x', howto: 'Как играть',
       bonuses: 'Бонусы', b1: 'Красный шар', b1d: 'Попадите в него — +1 шар в следующем броске.', b3: 'Каждые 3 опускания', b3d: '+1 шар добавляется автоматически.',
       bm: 'Бонусы за очки', bmd: 'Когда очки достигают этих чисел, среди кирпичей появляется большое красное бонусное кольцо. Попадите в него!',
       pts: 'очков', balls: 'шаров', maxd: 'Самый большой приз в игре.', gotIt: 'получен', soon: 'ещё нет',
@@ -452,13 +456,13 @@
   // Ball chegaralaridagi bonuslar: [ball, to'p soni, MAX WIN?]
   const MILESTONES = [[10000, 3], [50000, 5], [100000, 7], [500000, 25], [1000000, 105, true]];
   function blank() { return { level: 1, score: 0, balls: 1, launchX: COLS / 2, bricks: [], picks: [], state: 'aim', flying: [], fired: 0, fireT: 0, firstLand: null, pending: 0, fast: false, over: false, drops: 0, spawned: [], auto: 0 }; }
-  function newGame() { G = blank(); spawnRow(1); shiftDown(); store.set('save2', snapshot()); }
+  function newGame() { G = blank(); G.prevBest = best; spawnRow(1); shiftDown(); store.set('save2', snapshot()); }
   function snapshot() {
     return { bv: 2, level: G.level, score: G.score, balls: G.balls, launchX: G.launchX, drops: G.drops, spawned: G.spawned,
       bricks: G.bricks.map(b => ({ c: b.c, r: b.r, hp: b.hp })), picks: G.picks.filter(p => !p.got).map(p => ({ c: p.c, r: p.r, v: p.v, mi: p.mi })) };
   }
   function restore(s) {
-    G = Object.assign(blank(), { level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX, drops: s.drops || 0, spawned: s.bv === 2 ? (s.spawned || []) : [] });
+    G = Object.assign(blank(), { prevBest: best, level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX, drops: s.drops || 0, spawned: s.bv === 2 ? (s.spawned || []) : [] });
     G.bricks = s.bricks.map(b => ({ ...b, scale: 1 })); G.picks = s.picks.map(p => ({ ...p, t: 0 }));
   }
   function spawnRow(level) {
@@ -708,7 +712,6 @@
     const BALL = '#F7E733', TAIL = '#C9E000';
     const ballAt = (x, y) => {
       ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
-      if (!S.dark) { ctx.lineWidth = 1.3 / unit; ctx.strokeStyle = 'rgba(120,120,0,.55)'; ctx.stroke(); }
     };
     ctx.fillStyle = BALL;
     if (S.dark) { ctx.shadowColor = 'rgba(255,240,80,.9)'; ctx.shadowBlur = 14 * dpr; }
@@ -736,7 +739,21 @@
     ctx.shadowBlur = 0;
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
     ctx.textAlign = 'center';
-    if (rest > 0) textAt(`×${rest}`, clamp(G.launchX, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22, C.fg);
+    // ×N: yumshoq paydo bo'ladi ("pop"), ko'payganda yorishadi, otishda asta yo'qoladi
+    const CN = G.cnt || (G.cnt = { a: 0, pop: 0, shown: 0, last: 0 });
+    if (rest > 0) {
+      if (G.state === 'aim' && rest > CN.shown) { CN.pop = CN.shown ? 1 : 0.6; }
+      CN.shown = rest; CN.last = rest;
+    }
+    const want = G.state === 'aim' ? 1 : clamp(rest / Math.max(1, G.balls), 0, 1);
+    CN.a += (want - CN.a) * Math.min(1, dt * (want > CN.a ? 6 : 4));
+    CN.pop = Math.max(0, CN.pop - dt * 2.5);
+    if (CN.a > 0.02 && CN.last > 0) {
+      ctx.globalAlpha = CN.a;
+      const sc = 1 + 0.35 * Math.sin(Math.min(1, CN.pop) * Math.PI);
+      textAt(`×${CN.last}`, clamp(G.launchX, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22 * sc, CN.pop > 0.05 ? C.acc : C.fg);
+      ctx.globalAlpha = 1;
+    }
     if (G.auto > 0) { G.auto -= dt; ctx.globalAlpha = Math.min(1, G.auto); textAt('+1', clamp(G.launchX, 0.3, COLS - 0.3) - 0.5, FLOOR - 0.35 - (1.6 - G.auto) * 0.3, 0.24, '#e6283c'); ctx.globalAlpha = 1; }
     if (G.pending > 0 && G.state === 'fire') textAt(`+${G.pending}`, clamp((G.firstLand ?? G.launchX) + 0.55, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22, C.pick);
     for (const p of parts) { ctx.globalAlpha = 1 - p.life / p.max; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
@@ -760,6 +777,9 @@
   function updateHUD() {
     $('scoreOut').textContent = G.score;
     $('recOut').textContent = Math.max(best, G.score);
+    // score rekordga yetsa yoki oshsa — yashil
+    const pb = G.prevBest ?? best;
+    $('scoreOut').classList.toggle('win', pb > 0 && G.score >= pb);
     $('fastBtn').hidden = !(screen === 'game' && G.state === 'fire');
     $('fastLbl').textContent = fastMul() + 'x';
   }
