@@ -84,7 +84,7 @@
     padding: calc(16px + var(--st)) max(18px, var(--sr)) calc(16px + var(--sb)) max(18px, var(--sl)); box-sizing: border-box; animation: fade .18s ease-out; }
   @keyframes fade { from { opacity: 0; } }
   .sheet { width: min(360px, 100%); background: var(--card); border-radius: 26px; padding: 22px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px;
-    animation: pop .22s cubic-bezier(.2,1.4,.4,1); max-height: 100%; overflow: auto; box-sizing: border-box; }
+    animation: pop .22s cubic-bezier(.2,1.4,.4,1); max-height: 100%; overflow: auto; box-sizing: border-box; touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   @keyframes pop { from { transform: scale(.92); opacity: 0; } }
   .sheet h2 { margin: 0 0 4px; text-align: center; font-size: 26px; font-weight: 900; }
   .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 17px; }
@@ -107,6 +107,12 @@
   .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--chip); }
   .dots i.on { background: var(--acc); width: 22px; border-radius: 99px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bitem { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+  .bitem svg { width: 52px; height: 52px; }
+  .bitem b { display: block; font-size: 16px; } .bitem span { color: var(--muted); font-size: 13.5px; line-height: 1.35; }
+  .bitem i { font-style: normal; font-size: 12px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+  .bitem i.ok { color: #2e9e5b; }
+  .bhead { margin: 10px 0 2px; font-weight: 900; font-size: 15px; } .bsub { color: var(--muted); font-size: 13.5px; line-height: 1.4; margin-bottom: 4px; }
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 40; width: 100%; height: 100%; }
 </style>
 </head>
@@ -121,10 +127,13 @@
   </div>
   <span></span>
 </div>
-<button id="fastBtn" type="button" hidden data-i18n-aria="fast"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><b>2x</b></button>
+<button id="fastBtn" type="button" hidden data-i18n-aria="fast"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><b id="fastLbl">2x</b></button>
 
 <section id="menu">
   <div id="menuTop">
+    <button class="icon-btn" id="bonusBtn" type="button" data-i18n-aria="bonuses">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="11.5" rx="1.5"/><path d="M2.5 9h19M12 9v11.5M12 9c-1.5-3.5-6-4.5-6-1.6C6 9 12 9 12 9zm0 0c1.5-3.5 6-4.5 6-1.6C18 9 12 9 12 9z"/></svg>
+    </button>
     <button class="icon-btn" id="helpBtn" type="button" data-i18n-aria="howto">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.8"/><circle cx="12" cy="17.3" r=".6"/></svg>
     </button>
@@ -177,6 +186,14 @@
   </div>
 </section>
 
+<section id="bonusM" class="modal" hidden>
+  <div class="sheet">
+    <h2>🎁 <span data-i18n="bonuses">Bonuses</span></h2>
+    <div id="bonusList"></div>
+    <button class="big" id="bonusClose" type="button" data-i18n="done">Done</button>
+  </div>
+</section>
+
 <section id="overM" class="modal" hidden>
   <div class="sheet">
     <h2 data-i18n="over">Game over</h2>
@@ -208,23 +225,32 @@
     en: { best: 'Best', continue: 'CONTINUE', play: 'PLAY', paused: 'Paused', resume: 'Resume', restart: 'Restart', settings: 'Settings', menu: 'Menu',
       music: 'Music', sfx: 'Sound effects', volume: 'Volume', dark: 'Dark mode', lang: 'Language', done: 'Done', back: 'Back', next: 'Next ›', got: 'Got it ✓',
       over: 'Game over', score: 'Score', newrec: '🎉 New record!', again: 'Play again', mainmenu: 'Main menu', pause: 'Pause', fast: 'Hold for 2x speed', howto: 'How to play',
+      bonuses: 'Bonuses', b1: 'Red ball', b1d: 'Hit it — +1 ball on your next shot.', b3: 'Every 3 drops', b3d: '+1 ball is added automatically.',
+      bm: 'Score bonuses', bmd: 'When your score reaches these numbers, a big red bonus ring appears among the bricks. Hit it!',
+      pts: 'points', balls: 'balls', maxd: 'The biggest prize of the game.', gotIt: 'received', soon: 'not yet',
       s: [['Aim', 'Touch the screen and drag — the dotted line shows where the balls will go. Release to shoot.'],
           ['Break the bricks', 'The number is how many hits a brick needs. Every hit gives you 1 point. Lighter colors mean fewer hits left.'],
-          ['Collect balls', 'Hit a "+1" ring to get one more ball on your next shot. More balls — more power!'],
+          ['Collect balls', 'Hit a red ball to get +1 ball on your next shot. Every 3 drops you also get +1 ball. See 🎁 for big bonuses!'],
           ['Don\'t let them reach the bottom', 'After every shot the bricks move down one row. If a brick reaches the bottom line, the game ends. Hold 2x to speed up.']] },
     uz: { best: 'Rekord', continue: 'DAVOM ETISH', play: 'BOSHLASH', paused: 'Pauza', resume: 'Davom etish', restart: 'Qaytadan boshlash', settings: 'Sozlamalar', menu: 'Menyu',
       music: 'Musiqa', sfx: 'Ovoz effektlari', volume: 'Balandlik', dark: 'Qorong\'i rejim', lang: 'Til', done: 'Tayyor', back: 'Orqaga', next: 'Keyingi ›', got: 'Tushunarli ✓',
       over: 'O\'yin tugadi', score: 'Ball', newrec: '🎉 Yangi rekord!', again: 'Qaytadan', mainmenu: 'Bosh menyu', pause: 'Pauza', fast: '2x tezlik uchun bosib turing', howto: 'Qanday o\'ynaladi',
+      bonuses: 'Bonuslar', b1: 'Qizil shar', b1d: 'Ursangiz — keyingi otishda +1 to\'p.', b3: 'Har 3 tushishda', b3d: '+1 to\'p avtomatik qo\'shiladi.',
+      bm: 'Ball bonuslari', bmd: 'Ballingiz shu sonlarga yetganda, g\'ishtlar orasida katta qizil bonus halqa paydo bo\'ladi. Uni uring!',
+      pts: 'ball', balls: 'to\'p', maxd: 'O\'yindagi eng katta sovrin.', gotIt: 'olingan', soon: 'hali yo\'q',
       s: [['Mo\'ljal oling', 'Ekranga barmoqni qo\'yib suring — nuqtali chiziq to\'plar qayerga borishini ko\'rsatadi. Qo\'yib yuborsangiz, otiladi.'],
           ['G\'ishtlarni sindiring', 'Son — g\'isht necha zarbada sinishi. Har bir zarba 1 ball beradi. Rang ochroq bo\'lsa, oz zarba qolgan.'],
-          ['To\'p yig\'ing', '"+1" halqasiga tegsangiz, keyingi otishda bitta to\'p ko\'payadi. To\'p ko\'p — kuch ko\'p!'],
+          ['To\'p yig\'ing', 'Qizil sharni ursangiz, keyingi otishda +1 to\'p. Har 3 tushishda ham +1 to\'p qo\'shiladi. Katta bonuslar — 🎁 bo\'limida!'],
           ['Pastga tushirmang', 'Har otishdan keyin g\'ishtlar bir qator pastga tushadi. G\'isht pastki chiziqqa yetsa — o\'yin tugaydi. 2x ni bosib tursangiz, tezlashadi.']] },
     ru: { best: 'Рекорд', continue: 'ПРОДОЛЖИТЬ', play: 'ИГРАТЬ', paused: 'Пауза', resume: 'Продолжить', restart: 'Начать заново', settings: 'Настройки', menu: 'Меню',
       music: 'Музыка', sfx: 'Звуковые эффекты', volume: 'Громкость', dark: 'Тёмная тема', lang: 'Язык', done: 'Готово', back: 'Назад', next: 'Далее ›', got: 'Понятно ✓',
       over: 'Игра окончена', score: 'Очки', newrec: '🎉 Новый рекорд!', again: 'Ещё раз', mainmenu: 'Главное меню', pause: 'Пауза', fast: 'Удерживайте для скорости 2x', howto: 'Как играть',
+      bonuses: 'Бонусы', b1: 'Красный шар', b1d: 'Попадите в него — +1 шар в следующем броске.', b3: 'Каждые 3 опускания', b3d: '+1 шар добавляется автоматически.',
+      bm: 'Бонусы за очки', bmd: 'Когда очки достигают этих чисел, среди кирпичей появляется большое красное бонусное кольцо. Попадите в него!',
+      pts: 'очков', balls: 'шаров', maxd: 'Самый большой приз в игре.', gotIt: 'получен', soon: 'ещё нет',
       s: [['Прицельтесь', 'Коснитесь экрана и ведите пальцем — пунктир показывает, куда полетят шары. Отпустите, чтобы выстрелить.'],
           ['Ломайте кирпичи', 'Число — сколько ударов нужно кирпичу. Каждый удар даёт 1 очко. Чем светлее цвет, тем меньше ударов осталось.'],
-          ['Собирайте шары', 'Попадите в кольцо «+1» — в следующем броске будет на один шар больше. Больше шаров — больше силы!'],
+          ['Собирайте шары', 'Попадите в красный шар — +1 шар в следующем броске. Каждые 3 опускания тоже +1 шар. Большие бонусы — в разделе 🎁!'],
           ['Не пускайте вниз', 'После каждого броска кирпичи опускаются на ряд. Если кирпич коснётся нижней линии — игра окончена. Удерживайте 2x для ускорения.']] },
   };
   const S = Object.assign({ music: true, sfx: true, vol: 0.7, dark: false, lang: 'en' }, store.get('settings', {}));
@@ -236,6 +262,7 @@
     document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
     document.querySelectorAll('#langs button').forEach(b => b.classList.toggle('on', b.dataset.l === S.lang));
     if (!$('helpM').hidden) renderSlide();
+    if (!$('bonusM').hidden) renderBonuses();
   }
 
   // =================== Sozlamalar ===================
@@ -338,30 +365,40 @@
 
   // =================== O'yin holati ===================
   let G = null;
-  function blank() { return { level: 1, score: 0, balls: 1, launchX: COLS / 2, bricks: [], picks: [], state: 'aim', flying: [], fired: 0, fireT: 0, firstLand: null, pending: 0, fast: false, over: false }; }
+  const GRID = new Array(ROWS * COLS).fill(null);
+  const fastMul = () => (G && G.score > 300000 ? 3 : 2);   // 300 000 dan keyin 3x
+  let bonusGot = store.get('bonusGot', []);
+  function markBonus(i) { if (!bonusGot.includes(i)) { bonusGot.push(i); store.set('bonusGot', bonusGot); } }
+  // Ball chegaralaridagi bonuslar: [ball, to'p soni, MAX WIN?]
+  const MILESTONES = [[1000, 3], [2000, 5], [5000, 7], [10000, 10], [100000, 50], [300000, 150], [1000000, 500, true]];
+  function blank() { return { level: 1, score: 0, balls: 1, launchX: COLS / 2, bricks: [], picks: [], state: 'aim', flying: [], fired: 0, fireT: 0, firstLand: null, pending: 0, fast: false, over: false, drops: 0, spawned: [], auto: 0 }; }
   function newGame() { G = blank(); spawnRow(1); shiftDown(); store.set('save2', snapshot()); }
   function snapshot() {
-    return { level: G.level, score: G.score, balls: G.balls, launchX: G.launchX, bricks: G.bricks.map(b => ({ c: b.c, r: b.r, hp: b.hp })), picks: G.picks.filter(p => !p.got).map(p => ({ c: p.c, r: p.r })) };
+    return { level: G.level, score: G.score, balls: G.balls, launchX: G.launchX, drops: G.drops, spawned: G.spawned,
+      bricks: G.bricks.map(b => ({ c: b.c, r: b.r, hp: b.hp })), picks: G.picks.filter(p => !p.got).map(p => ({ c: p.c, r: p.r, v: p.v, mi: p.mi })) };
   }
   function restore(s) {
-    G = Object.assign(blank(), { level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX });
+    G = Object.assign(blank(), { level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX, drops: s.drops || 0, spawned: s.spawned || [] });
     G.bricks = s.bricks.map(b => ({ ...b, scale: 1 })); G.picks = s.picks.map(p => ({ ...p, t: 0 }));
   }
   function spawnRow(level) {
     const cells = [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5);
     let count = Math.random() < 0.5 ? 2 + Math.floor(Math.random() * 3) : 3 + Math.floor(Math.random() * 3);
     if (level < 3) count = Math.min(count, 3);
+    // ball chegarasiga yetilgan bo'lsa — shu qatorga bonus shar (har biri bir marta)
+    const mi = MILESTONES.findIndex(([th], i) => G.score >= th && !G.spawned.includes(i));
+    if (mi >= 0) { count = Math.min(count, 5); G.spawned.push(mi); G.picks.push({ c: cells[count + 1], r: -1, t: 0, v: MILESTONES[mi][1], mi }); }
     for (let i = 0; i < count; i++) {
       let hp = level;
       if (level > 4 && Math.random() < 0.18) hp = level * 2;
       G.bricks.push({ c: cells[i], r: -1, hp, scale: 0.4 });
     }
-    G.picks.push({ c: cells[count], r: -1, t: Math.random() * 6 });
+    G.picks.push({ c: cells[count], r: -1, t: Math.random() * 6, v: 1 });
   }
   function shiftDown() {
     for (const b of G.bricks) b.r++;
     for (const p of G.picks) p.r++;
-    G.picks = G.picks.filter(p => { if (p.r >= ROWS) { G.balls++; return false; } return true; });
+    G.picks = G.picks.filter(p => { if (p.r >= ROWS) { G.balls += p.v || 1; if (p.mi !== undefined) markBonus(p.mi); return false; } return true; });
   }
   const bx0 = b => b.c + GX / 2, bx1 = b => b.c + 1 - GX / 2, by0 = b => b.r * CH + GY / 2, by1 = b => (b.r + 1) * CH - GY / 2;
 
@@ -416,8 +453,10 @@
       if (b.y < TOP + R) { b.y = TOP + R; b.vy = Math.abs(b.vy); }
       const bc = Math.floor(b.x), br = Math.floor(b.y / CH);
       let hitDone = false;
-      for (const k of G.bricks) {
-        if (k.hp <= 0 || Math.abs(k.c - bc) > 1 || Math.abs(k.r - br) > 1) continue;
+      for (let rr2 = br - 1; rr2 <= br + 1; rr2++) for (let cc2 = bc - 1; cc2 <= bc + 1; cc2++) {
+        if (rr2 < 0 || rr2 >= ROWS || cc2 < 0 || cc2 >= COLS) continue;
+        const k = GRID[rr2 * COLS + cc2];
+        if (!k || k.hp <= 0) continue;
         const qx = clamp(b.x, bx0(k), bx1(k)), qy = clamp(b.y, by0(k), by1(k));
         let dx = b.x - qx, dy = b.y - qy; const d2 = dx * dx + dy * dy;
         if (d2 >= R * R) continue;
@@ -432,7 +471,12 @@
       if (Math.abs(b.vy) < SPEED * 0.12) { b.vy = (b.vy <= 0 ? -1 : 1) * SPEED * 0.12; const s = Math.hypot(b.vx, b.vy); b.vx *= SPEED / s; b.vy *= SPEED / s; }
       for (const p of G.picks) {
         if (p.got) continue;
-        if (Math.hypot(b.x - (p.c + 0.5), b.y - (p.r + 0.5) * CH) < R + 0.2) { p.got = true; G.pending++; sfx.pick(); burst(p.c + 0.5, (p.r + 0.5) * CH, C.pick, 8); }
+        const pr = p.mi === undefined ? 0.2 : 0.28;
+        if (Math.hypot(b.x - (p.c + 0.5), b.y - (p.r + 0.5) * CH) < R + pr) {
+          p.got = true; G.pending += p.v || 1; sfx.pick();
+          burst(p.c + 0.5, (p.r + 0.5) * CH, '#e6283c', p.mi === undefined ? 8 : 24);
+          if (p.mi !== undefined) { markBonus(p.mi); if (MILESTONES[p.mi][2]) sfx.record(); }
+        }
       }
       if (b.y >= FLOOR - R && b.vy > 0) {
         b.y = FLOOR - R; b.state = 'land';
@@ -447,13 +491,14 @@
     if (k.hp <= 0) { burst(k.c + 0.5, (k.r + 0.5) * CH, colorFor(1), 10); sfx.brk(); }
   }
   function updateTurn(dt) {
-    dt *= G.fast ? 2 : 1;
+    dt *= G.fast ? fastMul() : 1;
+    GRID.fill(null); for (const k of G.bricks) if (k.r >= 0 && k.r < ROWS) GRID[k.r * COLS + k.c] = k;
     if (G.fired < G.balls) {
       G.fireT -= dt;
       while (G.fireT <= 0 && G.fired < G.balls) {
         const l = launchPos();
         G.flying.push({ x: l.x, y: l.y, vx: G.dir.x * SPEED, vy: G.dir.y * SPEED, state: 'fly' });
-        G.fired++; G.fireT += 0.07;
+        G.fired++; G.fireT += Math.min(0.07, 2.5 / G.balls);   // to'p ko'p bo'lsa — tezroq otiladi
       }
     }
     for (const b of G.flying) {
@@ -473,6 +518,8 @@
     G.launchX = G.firstLand ?? G.launchX;
     G.flying = []; G.state = 'aim';
     G.level++;
+    G.drops++;
+    if (G.drops % 3 === 0) { G.balls++; G.auto = 1.6; }   // har 3 tushishda avtomatik +1 to'p
     spawnRow(G.level); shiftDown();
     if (G.bricks.some(b => b.r >= ROWS)) { gameOver(); return; }
     store.set('save2', snapshot());
@@ -501,6 +548,35 @@
     centerText(txt, ox + bx * unit, oy + by * unit);
     ctx.restore();
   }
+  function glow(cx, cy, r, a) {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(230,40,60,${a})`); g.addColorStop(1, 'rgba(230,40,60,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  }
+  function ring(cx, cy, r, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); }
+  function drawPick(p, cx, cy) {
+    const breath = (Math.sin(p.t * 3) + 1) / 2;   // 0..1, sekin "nafas"
+    if (p.mi === undefined) {
+      // +1: qizil shar, atrofida kengayib-torayadigan yumshoq nur
+      glow(cx, cy, 0.2 + breath * 0.14, 0.42);
+      ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.085, 0, Math.PI * 2); ctx.fill();
+    } else if (!MILESTONES[p.mi][2]) {
+      // bonus: qizil ikki halqa, ichida soni
+      glow(cx, cy, 0.34 + breath * 0.14, 0.45);
+      ring(cx, cy, 0.27, 0.045, '#b5172b'); ring(cx, cy, 0.2, 0.03, '#ff8a99');
+      ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.15, 0, Math.PI * 2); ctx.fill();
+      textAt('+' + p.v, cx, cy, p.v >= 100 ? 0.11 : 0.14, '#ffffff');
+    } else {
+      // MAX WIN: uch halqa va aylanuvchi nurlar
+      glow(cx, cy, 0.5 + breath * 0.18, 0.5);
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(p.t * 0.8); ctx.fillStyle = 'rgba(230,40,60,.35)';
+      for (let k = 0; k < 12; k++) { ctx.rotate(Math.PI / 6); ctx.beginPath(); ctx.moveTo(-0.03, 0); ctx.lineTo(0, -0.5); ctx.lineTo(0.03, 0); ctx.fill(); }
+      ctx.restore();
+      ring(cx, cy, 0.31, 0.04, '#b5172b'); ring(cx, cy, 0.25, 0.032, '#e6283c'); ring(cx, cy, 0.2, 0.025, '#ff8a99');
+      ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.16, 0, Math.PI * 2); ctx.fill();
+      textAt('+500', cx, cy - 0.025, 0.1, '#ffffff'); textAt('MAX', cx, cy + 0.07, 0.06, '#ffd6dc');
+    }
+  }
   function draw(dt) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, innerWidth, innerHeight);
@@ -523,14 +599,11 @@
       const s = String(b.hp);
       textAt(s, cx, cy, (s.length > 5 ? 0.2 : s.length > 3 ? 0.24 : 0.3) * b.scale, lightBrick(b.hp) ? '#3a1f45' : '#ffffff');
     }
-    // +1 halqalar
+    // +1 va bonus sharlar
     for (const p of G.picks) {
       p.t += dt;
-      const a = p.got ? 1 - (p.fade || 0) / 0.3 : 1, cx = p.c + 0.5, cy = (p.r + 0.5) * CH;
-      const pr = 0.17 + Math.sin(p.t * 5) * 0.02;
-      ctx.globalAlpha = a; ctx.strokeStyle = C.pick; ctx.lineWidth = 0.045;
-      ctx.beginPath(); ctx.arc(cx, cy, pr, 0, Math.PI * 2); ctx.stroke();
-      textAt('+1', cx, cy, 0.15, C.pick);
+      ctx.globalAlpha = p.got ? Math.max(0, 1 - (p.fade || 0) / 0.3) : 1;
+      drawPick(p, p.c + 0.5, (p.r + 0.5) * CH);
       ctx.globalAlpha = 1;
     }
     // mo'ljal
@@ -553,6 +626,7 @@
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
     ctx.textAlign = 'center';
     if (rest > 0) textAt(`×${rest}`, clamp(G.launchX, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22, C.fg);
+    if (G.auto > 0) { G.auto -= dt; ctx.globalAlpha = Math.min(1, G.auto); textAt('+1', clamp(G.launchX, 0.3, COLS - 0.3) - 0.5, FLOOR - 0.35 - (1.6 - G.auto) * 0.3, 0.24, '#e6283c'); ctx.globalAlpha = 1; }
     if (G.pending > 0 && G.state === 'fire') textAt(`+${G.pending}`, clamp((G.firstLand ?? G.launchX) + 0.55, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22, C.pick);
     for (const p of parts) { ctx.globalAlpha = 1 - p.life / p.max; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
     ctx.globalAlpha = 1;
@@ -576,6 +650,7 @@
     $('scoreOut').textContent = G.score;
     $('recOut').textContent = Math.max(best, G.score);
     $('fastBtn').hidden = !(screen === 'game' && G.state === 'fire');
+    $('fastLbl').textContent = fastMul() + 'x';
   }
   function startNew() { unlockAudio(); store.del('save2'); newGame(); show('game'); }
   function continueGame() { unlockAudio(); const s = store.get('save2', null); if (!s) return startNew(); restore(s); show('game'); }
@@ -623,7 +698,12 @@
     if (d && screen === 'game' && G.state === 'aim') fire(d);
   }
   cv.addEventListener('touchstart', e => { e.preventDefault(); const tc = e.changedTouches[0]; if (!aim) aimStart(tc.identifier, tc.clientX, tc.clientY); }, { passive: false });
-  window.addEventListener('touchmove', e => { e.preventDefault(); for (const tc of e.changedTouches) aimMove(tc.identifier, tc.clientX, tc.clientY); }, { passive: false });
+  window.addEventListener('touchmove', e => {
+    // oynalar ichida (masalan, bonuslar ro'yxati) surish mumkin bo'lsin
+    if (!aim && e.target.closest && e.target.closest('.sheet')) return;
+    e.preventDefault();
+    for (const tc of e.changedTouches) aimMove(tc.identifier, tc.clientX, tc.clientY);
+  }, { passive: false });
   window.addEventListener('touchend', e => { for (const tc of e.changedTouches) aimEnd(tc.identifier); });
   // iPhone teginishni bekor qilsa ham mo'ljal yo'qolmaydi: oxirgi yo'nalish bo'yicha otiladi
   window.addEventListener('touchcancel', e => { for (const tc of e.changedTouches) aimEnd(tc.identifier); });
@@ -642,7 +722,7 @@
     `${brk(10, 30, '#5E2A62', '700', '#fff')}${brk(72, 30, '#845591', '300', '#fff')}${brk(134, 30, '#C9A0DC', '70', '#3a1f45')}${brk(196, 30, '#E8D6F0', '5', '#3a1f45')}
      <text x="130" y="105" font-size="14" font-weight="800" fill="#7d7186" text-anchor="middle" font-family="system-ui">→  1 hit = +1  →</text>
      ${[0, 1, 2, 3].map(i => `<circle cx="${70 + i * 36}" cy="${170 - i * 16}" r="7" fill="currentColor"/>`).join('')}`,
-    `<circle cx="130" cy="78" r="24" fill="none" stroke="#845591" stroke-width="5"/><text x="130" y="85" font-size="18" font-weight="800" fill="#845591" text-anchor="middle" font-family="system-ui">+1</text>
+    `<defs><radialGradient id="sg"><stop offset="0" stop-color="#e6283c" stop-opacity=".5"/><stop offset="1" stop-color="#e6283c" stop-opacity="0"/></radialGradient></defs><circle cx="130" cy="78" r="42" fill="url(#sg)"/><circle cx="130" cy="78" r="12" fill="#e6283c"/>
      ${[0, 1, 2, 3, 4].map(i => `<circle cx="${92 + i * 18}" cy="186" r="7" fill="currentColor"/>`).join('')}
      <text x="196" y="192" font-size="18" font-weight="800" fill="currentColor" font-family="system-ui">×5</text><rect x="0" y="202" width="260" height="3" fill="#845591" opacity=".55"/>`,
     `${brk(60, 160, '#A584B0', '140', '#fff')}${brk(150, 112, '#845591', '230', '#fff')}
@@ -660,6 +740,26 @@
   $('helpBtn').onclick = () => { slI = 0; renderSlide(); openModal('helpM'); };
   $('prevSl').onclick = () => { slI = Math.max(0, slI - 1); renderSlide(); };
   $('nextSl').onclick = () => { if (slI === SVG.length - 1) closeModal('helpM'); else { slI++; renderSlide(); } };
+
+  // =================== Bonuslar oynasi ===================
+  const gl = id => `<defs><radialGradient id="${id}"><stop offset="0" stop-color="#e6283c" stop-opacity=".5"/><stop offset="1" stop-color="#e6283c" stop-opacity="0"/></radialGradient></defs><circle cx="26" cy="26" r="25" fill="url(#${id})"/>`;
+  const icoDot = () => `<svg viewBox="0 0 52 52">${gl('g1')}<circle cx="26" cy="26" r="7" fill="#e6283c"/></svg>`;
+  const icoAuto = () => `<svg viewBox="0 0 52 52"><path d="M26 8v20M18 21l8 8 8-8" stroke="var(--acc)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="26" y="46" font-size="14" font-weight="900" fill="#e6283c" text-anchor="middle" font-family="system-ui">+1</text></svg>`;
+  const icoRing = n => `<svg viewBox="0 0 52 52">${gl('g' + n)}<circle cx="26" cy="26" r="19" fill="none" stroke="#b5172b" stroke-width="3.4"/><circle cx="26" cy="26" r="14" fill="none" stroke="#ff8a99" stroke-width="2.2"/><circle cx="26" cy="26" r="11" fill="#e6283c"/><text x="26" y="30" font-size="${n >= 100 ? 7.5 : 10}" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+${n}</text></svg>`;
+  const icoMax = () => `<svg viewBox="0 0 52 52">${gl('gm')}<g fill="rgba(230,40,60,.35)">${[...Array(12)].map((_, k) => `<path d="M24.6 26 L26 1 L27.4 26z" transform="rotate(${k * 30} 26 26)"/>`).join('')}</g><circle cx="26" cy="26" r="17" fill="none" stroke="#b5172b" stroke-width="3"/><circle cx="26" cy="26" r="13.5" fill="none" stroke="#e6283c" stroke-width="2.4"/><circle cx="26" cy="26" r="10.8" fill="none" stroke="#ff8a99" stroke-width="1.8"/><circle cx="26" cy="26" r="9" fill="#e6283c"/><text x="26" y="26" font-size="6.5" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+500</text><text x="26" y="32" font-size="4.6" font-weight="900" fill="#ffd6dc" text-anchor="middle" font-family="system-ui">MAX</text></svg>`;
+  const fmt = n => n.toLocaleString(S.lang === 'ru' ? 'ru-RU' : 'en-US');
+  function renderBonuses() {
+    const st = i => bonusGot.includes(i) ? `<i class="ok">✓ ${t('gotIt')}</i>` : `<i>${t('soon')}</i>`;
+    let h = `<div class="bitem">${icoDot()}<div><b>${t('b1')}</b><span>${t('b1d')}</span></div><i></i></div>`;
+    h += `<div class="bitem">${icoAuto()}<div><b>${t('b3')}</b><span>${t('b3d')}</span></div><i></i></div>`;
+    h += `<div class="bhead">${t('bm')}</div><div class="bsub">${t('bmd')}</div>`;
+    MILESTONES.forEach(([th, v, max], i) => {
+      h += `<div class="bitem">${max ? icoMax() : icoRing(v)}<div><b>${fmt(th)} ${t('pts')} → +${v} ${t('balls')}${max ? ' · MAX WIN' : ''}</b>${max ? `<span>${t('maxd')}</span>` : ''}</div>${st(i)}</div>`;
+    });
+    $('bonusList').innerHTML = h;
+  }
+  $('bonusBtn').onclick = () => { renderBonuses(); openModal('bonusM'); };
+  $('bonusClose').onclick = () => closeModal('bonusM');
 
   // =================== Konfetti ===================
   const cc = $('confetti'), cx2 = cc.getContext('2d');
