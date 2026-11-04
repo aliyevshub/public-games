@@ -68,13 +68,15 @@
   #hud { position: fixed; left: 0; right: 0; top: 0; z-index: 5; padding: calc(10px + var(--st)) max(14px, var(--sr)) 0 max(14px, var(--sl));
     display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; pointer-events: none; }
   #hud > * { pointer-events: auto; }
-  .scores { text-align: center; line-height: 1.05; }
-  .scores .lbl { font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
-  .scores .cur { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; transition: color .25s; }
+  .scores { display: grid; grid-template-columns: auto auto; column-gap: 8px; row-gap: 2px; align-items: baseline; justify-content: center; line-height: 1.1; }
+  .scores .lbl { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; text-align: right; }
+  .scores .lbl::after { content: ":"; }
+  .scores .val { text-align: left; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .scores .cur { font-size: 24px; transition: color .25s; display: inline-block; transform-origin: left center; }
+  .scores .recv { font-size: 16px; color: var(--fg); opacity: .8; }
   .scores .cur.win { color: var(--win); animation: winpop .45s cubic-bezier(.2,1.6,.4,1); }
   @keyframes winpop { 40% { transform: scale(1.22); } }
-  .scores .rec { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
-  .scores .rec b { color: var(--fg); font-size: 13px; font-variant-numeric: tabular-nums; }
+
   #fastBtn { position: fixed; right: max(14px, var(--sr)); bottom: calc(12px + var(--sb)); z-index: 5; height: 52px; padding: 0 16px; gap: 6px;
     display: flex; align-items: center; border-radius: 16px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); touch-action: none; }
   #fastBtn svg { width: 22px; height: 22px; stroke: var(--fg); fill: none; stroke-width: 2.2; stroke-linejoin: round; }
@@ -125,9 +127,8 @@
 <div id="hud" hidden>
   <button class="icon-btn" id="pauseBtn" type="button" data-i18n-aria="pause"><svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg></button>
   <div class="scores">
-    <div class="lbl" data-i18n="score">Score</div>
-    <div class="cur" id="scoreOut">0</div>
-    <div class="rec"><span data-i18n="record">Record</span> <b id="recOut">0</b></div>
+    <span class="lbl" data-i18n="score">Score</span><span class="val"><b class="cur" id="scoreOut">0</b></span>
+    <span class="lbl" data-i18n="record">Record</span><span class="val recv" id="recOut">0</span>
   </div>
   <span></span>
 </div>
@@ -423,7 +424,8 @@
 
   // =================== Maydon ===================
   // G'isht: eni 1, bo'yi 1/1.5 — eni bo'yidan 1.5 barobar katta
-  const COLS = 7, ROWS = 12, CH = 1 / 1.5, TOP = 0, FIELD = ROWS * CH, FLOOR = FIELD + 0.95, BOARD_H = FLOOR + 0.35;
+  const COLS = 7, ROWS = 13, CH = 1 / 1.5, TOP = 0, FIELD = ROWS * CH, FLOOR = FIELD, BOARD_H = FLOOR + 0.35;
+  const LAST = ROWS - 1;   // pol chizig'iga tegib turgan qator: g'isht shu yerga yetsa — o'yin tugaydi
   const R = 0.11, SPEED = 17, GX = 0.05, GY = 0.05;
   let unit = 50, ox = 0, oy = 0, dpr = 1;
   function resize() {
@@ -432,7 +434,8 @@
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const st = parseFloat(getComputedStyle($('hud')).paddingTop) || 10;
     const sb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sb')) || 0;
-    const topSpace = st + 60, botSpace = 72 + sb;
+    const hudH = $('hud').hidden ? 56 : Math.max(56, $('hud').getBoundingClientRect().height - st + 4);
+    const topSpace = st + hudH + 10, botSpace = 72 + sb;
     const availH = h - topSpace - botSpace;
     unit = Math.min(w / COLS, availH / BOARD_H);
     ox = (w - unit * COLS) / 2; oy = topSpace + (availH - unit * BOARD_H) / 2;
@@ -481,7 +484,7 @@
   function shiftDown() {
     for (const b of G.bricks) b.r++;
     for (const p of G.picks) p.r++;
-    G.picks = G.picks.filter(p => { if (p.r >= ROWS) { G.balls += p.v || 1; if (p.mi !== undefined) markBonus(p.mi); return false; } return true; });
+    G.picks = G.picks.filter(p => { if (p.r >= LAST) { G.balls += p.v || 1; if (p.mi !== undefined) markBonus(p.mi); return false; } return true; });
   }
   const bx0 = b => b.c + GX / 2, bx1 = b => b.c + 1 - GX / 2, by0 = b => b.r * CH + GY / 2, by1 = b => (b.r + 1) * CH - GY / 2;
 
@@ -604,7 +607,7 @@
     G.level++;
     G.drops++;
     spawnRow(G.level); shiftDown();
-    if (G.bricks.some(b => b.r >= ROWS)) { gameOver(); return; }
+    if (G.bricks.some(b => b.r >= LAST)) { gameOver(); return; }
     store.set('save2', snapshot());
   }
 
@@ -673,7 +676,7 @@
     // tepa va past chegara chiziqlari (butun ekran eni bo'ylab)
     const topY = oy + TOP * unit, floorY = oy + FLOOR * unit;
     ctx.fillStyle = C.edgeTop; ctx.fillRect(0, topY - 1, innerWidth, 2);
-    const danger = G.bricks.some(b => b.r === ROWS - 1);
+    const danger = G.bricks.some(b => b.r === LAST - 1);
     ctx.fillStyle = danger ? C.danger : C.edge; ctx.fillRect(0, floorY - 1.5, innerWidth, 3);
 
     ctx.translate(ox, oy); ctx.scale(unit, unit);
@@ -708,13 +711,13 @@
       for (let s = 0.3; s < 1.2; s += 0.3) { ctx.beginPath(); ctx.arc(hx + rx * s, hy + ry * s, 0.032, 0, Math.PI * 2); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
-    // to'plar: Limon 3 (#F7E733) — qorong'ida yengil nur, yorug'da ingichka chegara
-    const BALL = '#F7E733', TAIL = '#C9E000';
+    // to'plar: Lavanda (#C4B5FD) — qorong'ida yengil nur
+    const BALL = '#C4B5FD', TAIL = '#A78BFA';
     const ballAt = (x, y) => {
       ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
     };
     ctx.fillStyle = BALL;
-    if (S.dark) { ctx.shadowColor = 'rgba(255,240,80,.9)'; ctx.shadowBlur = 14 * dpr; }
+    if (S.dark) { ctx.shadowColor = 'rgba(196,181,253,.9)'; ctx.shadowBlur = 14 * dpr; }
     if (G.state === 'aim' || G.fired < G.balls) { const l = launchPos(); ballAt(l.x, l.y); }
     ctx.shadowBlur = 0;
     // to'plar orqasidagi yumshoq iz (kometa dumi): oxiriga qarab ingichkalashib, xiralashadi
@@ -734,7 +737,7 @@
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = BALL;
-    if (S.dark) { ctx.shadowColor = 'rgba(255,240,80,.9)'; ctx.shadowBlur = 14 * dpr; }
+    if (S.dark) { ctx.shadowColor = 'rgba(196,181,253,.9)'; ctx.shadowBlur = 14 * dpr; }
     for (const b of G.flying) ballAt(b.x, b.y);
     ctx.shadowBlur = 0;
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
@@ -766,7 +769,9 @@
     screen = name;
     $('menu').hidden = name !== 'menu';
     const inGame = name === 'game' || name === 'pause' || name === 'over';
+    const wasHidden = $('hud').hidden;
     $('hud').hidden = !inGame;
+    if (wasHidden && inGame) resize();   // panel balandligi bo'yicha maydonni joylashtiramiz
     $('pauseM').hidden = name !== 'pause';
     $('overM').hidden = name !== 'over';
     if (name !== 'game') { aim = null; fastOff(); }
