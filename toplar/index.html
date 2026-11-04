@@ -169,7 +169,6 @@
 <section id="setM" class="modal" hidden>
   <div class="sheet">
     <h2 data-i18n="settings">Settings</h2>
-    <div class="row"><span>🎵 <span data-i18n="music">Music</span></span><button class="switch" id="swMusic" type="button" data-i18n-aria="music"></button></div>
     <div class="row"><span>🔊 <span data-i18n="sfx">Sound effects</span></span><button class="switch" id="swSfx" type="button" data-i18n-aria="sfx"></button></div>
     <div class="row"><span>🎚 <span data-i18n="volume">Volume</span></span><input id="vol" type="range" min="0" max="1" step="0.05" data-i18n-aria="volume"></div>
     <div class="row"><span>🌙 <span data-i18n="dark">Dark mode</span></span><button class="switch" id="swDark" type="button" data-i18n-aria="dark"></button></div>
@@ -258,7 +257,7 @@
           ['Собирайте шары', 'Попадите в красный шар — +1 шар в следующем броске. Большие бонусы за очки — в разделе 🎁!'],
           ['Не пускайте вниз', 'После каждого броска кирпичи опускаются на ряд. Если кирпич коснётся нижней линии — игра окончена. Удерживайте 2x для ускорения.']] },
   };
-  const S = Object.assign({ music: true, sfx: true, vol: 0.7, dark: false, lang: 'en' }, store.get('settings', {}));
+  const S = Object.assign({ sfx: true, vol: 0.7, dark: false, lang: 'en' }, store.get('settings', {}));
   if (!T[S.lang]) S.lang = 'en';
   const t = k => T[S.lang][k];
   function applyLang() {
@@ -280,18 +279,17 @@
     for (const k of ['bg', 'fg', 'muted', 'acc', 'ball', 'edge', 'edgeTop', 'pick', 'danger']) C[k] = cs.getPropertyValue('--' + k).trim();
   }
   function syncSettingsUI() {
-    $('swMusic').classList.toggle('on', S.music); $('swSfx').classList.toggle('on', S.sfx); $('swDark').classList.toggle('on', S.dark);
+    $('swSfx').classList.toggle('on', S.sfx); $('swDark').classList.toggle('on', S.dark);
     $('vol').value = S.vol;
   }
   const saveSettings = () => { store.set('settings', S); syncSettingsUI(); if (master) master.gain.value = S.vol; };
-  $('swMusic').onclick = () => { S.music = !S.music; saveSettings(); unlockAudio(); };
   $('swSfx').onclick = () => { S.sfx = !S.sfx; saveSettings(); unlockAudio(); sfx.pick(); };
   $('swDark').onclick = () => { S.dark = !S.dark; applyTheme(); saveSettings(); };
   $('vol').oninput = () => { S.vol = +$('vol').value; saveSettings(); };
   document.querySelectorAll('#langs button').forEach(b => b.onclick = () => { S.lang = b.dataset.l; saveSettings(); applyLang(); });
 
   // =================== Ovoz ===================
-  let actx = null, master = null, musicBus = null, musicTimer = null, nextNote = 0, step = 0, lp = null, noiseBuf = null;
+  let actx = null, master = null, noiseBuf = null;
   // iPhone ovozsiz rejimda Web Audio'ni o'chiradi. Ovozni "media" sifatida chalish uchun:
   // 1) audioSession turini 'playback' qilamiz (yangi iOS), 2) jim audio faylni aylantirib turamiz (eski iOS).
   let mediaEl = null;
@@ -315,20 +313,11 @@
       try {
         actx = new (window.AudioContext || window.webkitAudioContext)();
         master = actx.createGain(); master.gain.value = S.vol; master.connect(actx.destination);
-        // musiqa: juda past va yumshoq (yuqori chastotalar kesilgan)
-        // musiqa: pianino + xonadagidek yengil aks-sado
-        musicBus = actx.createGain(); musicBus.gain.value = 0.9; musicBus.connect(master);
-        const ir = actx.createBuffer(2, Math.floor(actx.sampleRate * 2.6), actx.sampleRate);
-        for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3); }
-        const verb = actx.createConvolver(); verb.buffer = ir;
-        const wet = actx.createGain(); wet.gain.value = 0.32;
-        musicBus.connect(verb); verb.connect(wet); wet.connect(master);
         noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.25, actx.sampleRate);
         const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
       } catch (e) { return; }
     }
     if (actx.state === 'suspended') actx.resume();
-    if (!musicTimer) musicTimer = setInterval(scheduleMusic, 120);
   }
   function tone(f, len, vol, type = 'sine', when = 0, bus = master, attack = 0.006) {
     if (!actx) return;
@@ -380,56 +369,14 @@
     over() { if (!S.sfx || !actx) return; [523, 440, 349, 294].forEach((f, i) => tone(f, 0.5, 0.05, 'sine', i * 0.16)); },
     record() { if (!S.sfx || !actx) return; [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.4, 0.05, 'sine', i * 0.1)); },
   };
-  // =================== Fon musiqasi: sokin pianino ===================
-  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
-  // Pianino tovushi: bir nechta garmonika, tez zarba, asta so'nish; baland notalar tezroq so'nadi
-  const HARM = [[1, 1], [2, 0.45], [3, 0.22], [4, 0.12], [5, 0.06], [6, 0.03]];
-  function piano(midi, when, vel, sustain = 1) {
-    const f = mtof(midi), st = actx.currentTime + when;
-    const out = actx.createGain(); out.gain.value = vel * 0.11;
-    const flt = actx.createBiquadFilter(); flt.type = 'lowpass';
-    flt.frequency.setValueAtTime(Math.min(7000, f * 9), st); flt.frequency.exponentialRampToValueAtTime(Math.max(350, f * 2.2), st + 1.2);
-    out.connect(flt); flt.connect(musicBus);
-    const decay = clamp(3.4 - Math.log2(f / 110) * 0.55, 0.9, 3.6) * sustain;
-    for (const [h, a] of HARM) {
-      const o = actx.createOscillator(), g = actx.createGain(), d = decay / (1 + h * 0.5);
-      o.type = 'sine'; o.frequency.value = f * h * (1 + 0.00035 * h * h);   // pianinodagi kabi biroz "noto'g'ri" garmonikalar
-      g.gain.setValueAtTime(0.0001, st); g.gain.linearRampToValueAtTime(a, st + 0.005);
-      g.gain.exponentialRampToValueAtTime(a * 0.4, st + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, st + d);
-      o.connect(g); g.connect(out); o.start(st); o.stop(st + d + 0.05);
-    }
-  }
-  // Akkordlar (MIDI): [bass, [akkord notalari]]
-  const PROG_A = [[41, [53, 57, 60, 64]], [40, [52, 55, 59, 62]], [38, [50, 53, 57, 60]], [36, [48, 52, 55, 59]]];   // Fmaj7 Em7 Dm7 Cmaj7
-  const PROG_B = [[45, [52, 57, 60, 64]], [41, [53, 57, 60, 65]], [36, [52, 55, 60, 64]], [43, [50, 55, 59, 64]]];   // Am7 F C G6
-  const MELODY_TONES = [0, 2, 4, 7, 9, 12];
-  const EIGHTH = 60 / 70 / 2;   // 70 BPM
-  function scheduleMusic() {
-    if (!actx || !S.music || document.hidden) { if (actx) nextNote = actx.currentTime + 0.3; return; }
-    while (nextNote < actx.currentTime + 0.6) {
-      const when = Math.max(0, nextNote - actx.currentTime);
-      const bar = Math.floor(step / 8), pos = step % 8, section = Math.floor(bar / 4) % 4;
-      const [bass, chord] = (section === 2 ? PROG_B : PROG_A)[bar % 4];
-      if (pos === 0) { piano(bass, when, 0.55, 1.3); piano(bass + 12, when + 0.01, 0.25, 1.1); }
-      // yumshoq yoyilgan akkord
-      if (pos % 2 === 0) piano(chord[(pos / 2 + (bar % 2)) % 4], when, 0.32 + Math.random() * 0.06);
-      // ohang: 2- va 4-qismlarda, sokin va siyrak
-      if ((section === 1 || section === 3) && (pos === 1 || pos === 4 || pos === 6) && Math.random() < 0.6) {
-        const root = chord[0] + 12, deg = MELODY_TONES[Math.floor(Math.random() * MELODY_TONES.length)];
-        piano(root + deg, when, 0.42, 0.9);
-      }
-      step++; nextNote += EIGHTH;
-    }
-  }
-
   // =================== Maydon ===================
   // G'isht: eni 1, bo'yi 1/1.5 — eni bo'yidan 1.5 barobar katta
-  const COLS = 7, ROWS = 13, CH = 1 / 1.5, TOP = 0, FIELD = ROWS * CH, FLOOR = FIELD, BOARD_H = FLOOR + 0.35;
+  const COLS = 6, ROWS = 13, CH = 1 / 1.5, TOP = 0, FIELD = ROWS * CH, FLOOR = FIELD, BOARD_H = FLOOR + 0.35;
   const LAST = ROWS - 1;   // pol chizig'iga tegib turgan qator: g'isht shu yerga yetsa — o'yin tugaydi
   const R = 0.11, SPEED = 17, GX = 0.05, GY = 0.05;
   let unit = 50, ox = 0, oy = 0, dpr = 1;
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);   // 2x aniqlik yetarli, telefon yengilroq ishlaydi
     const w = innerWidth, h = innerHeight;
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const st = parseFloat(getComputedStyle($('hud')).paddingTop) || 10;
@@ -466,15 +413,15 @@
   }
   function restore(s) {
     G = Object.assign(blank(), { prevBest: best, level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX, drops: s.drops || 0, spawned: s.bv === 2 ? (s.spawned || []) : [] });
-    G.bricks = s.bricks.map(b => ({ ...b, scale: 1 })); G.picks = s.picks.map(p => ({ ...p, t: 0 }));
+    G.bricks = s.bricks.filter(b => b.c < COLS).map(b => ({ ...b, scale: 1 })); G.picks = s.picks.filter(p => p.c < COLS).map(p => ({ ...p, t: 0 }));   // eski 7 ustunli saqlanmalar uchun
   }
   function spawnRow(level) {
-    const cells = [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5);
+    const cells = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
     let count = Math.random() < 0.5 ? 2 + Math.floor(Math.random() * 3) : 3 + Math.floor(Math.random() * 3);
     if (level < 3) count = Math.min(count, 3);
     // ball chegarasiga yetilgan bo'lsa — shu qatorga bonus shar (har biri bir marta)
     const mi = MILESTONES.findIndex(([th], i) => G.score >= th && !G.spawned.includes(i));
-    if (mi >= 0) { count = Math.min(count, 5); G.spawned.push(mi); G.picks.push({ c: cells[count + 1], r: 0, t: 0, v: MILESTONES[mi][1], mi }); }
+    if (mi >= 0) { count = Math.min(count, 4); G.spawned.push(mi); G.picks.push({ c: cells[count + 1], r: 0, t: 0, v: MILESTONES[mi][1], mi }); }
     for (let i = 0; i < count; i++) {
       const hp = level;   // yangi g'isht soni = tushishlar soni
       G.bricks.push({ c: cells[i], r: 0, hp, scale: 0.4 });   // siljigandan keyin 1-qatorda bo'ladi, 0-qator bo'sh qoladi
@@ -621,23 +568,37 @@
   }
 
   // =================== Chizish ===================
+  // Matn o'lchovini eslab qolamiz — har kadrda qayta o'lchamaymiz
+  const textOff = new Map();
   function centerText(txt, x, y) {
-    const m = ctx.measureText(txt);
-    const asc = m.actualBoundingBoxAscent || 0, desc = m.actualBoundingBoxDescent || 0;
-    ctx.fillText(txt, x, y + (asc - desc) / 2);
+    const key = ctx.font + '|' + txt;
+    let off = textOff.get(key);
+    if (off === undefined) {
+      const m = ctx.measureText(txt);
+      off = ((m.actualBoundingBoxAscent || 0) - (m.actualBoundingBoxDescent || 0)) / 2;
+      if (textOff.size > 3000) textOff.clear();
+      textOff.set(key, off);
+    }
+    ctx.fillText(txt, x, y + off);
   }
   // Matnni ekran piksellarida chizamiz — shunda raqam aynan markazda turadi
   function textAt(txt, bx, by, size, color, weight = 800) {
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.font = `${weight} ${size * unit}px ui-rounded, -apple-system, system-ui, sans-serif`;
+    ctx.font = `${weight} ${Math.round(size * unit * 2) / 2}px ui-rounded, -apple-system, system-ui, sans-serif`;
     ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     centerText(txt, ox + bx * unit, oy + by * unit);
     ctx.restore();
   }
+  // Qizil nur bir marta chizilib, rasm sifatida qayta ishlatiladi
+  const GLOW = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(230,40,60,1)'); gr.addColorStop(1, 'rgba(230,40,60,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return c;
+  })();
   function glow(cx, cy, r, a) {
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, `rgba(230,40,60,${a})`); g.addColorStop(1, 'rgba(230,40,60,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * a;
+    ctx.drawImage(GLOW, cx - r, cy - r, r * 2, r * 2);
+    ctx.globalAlpha = a0;
   }
   function ring(cx, cy, r, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); }
   function drawPick(p, cx, cy) {
@@ -723,16 +684,14 @@
     let drawn = 0;
     for (const b of G.flying) {
       if (!b.tr || b.tr.length < 4 || drawn++ > 220) continue;
-      const n = b.tr.length / 2;
-      ctx.lineCap = 'round';
-      for (let i = 0; i < n - 1; i++) {
-        const k = (i + 1) / n;
-        ctx.strokeStyle = k < 0.5 ? TAIL : BALL;
-        ctx.globalAlpha = (S.dark ? 0.55 : 0.7) * k * k;
-        ctx.lineWidth = R * 2 * (0.25 + 0.7 * k);
-        const x2 = i === n - 2 ? b.x : b.tr[i * 2 + 2], y2 = i === n - 2 ? b.y : b.tr[i * 2 + 3];
-        ctx.beginPath(); ctx.moveTo(b.tr[i * 2], b.tr[i * 2 + 1]); ctx.lineTo(x2, y2); ctx.stroke();
-      }
+      const n = b.tr.length / 2, mid = Math.floor(n / 2);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // dumning uchi: ingichka va xira
+      ctx.strokeStyle = TAIL; ctx.globalAlpha = S.dark ? 0.18 : 0.25; ctx.lineWidth = R * 0.8;
+      ctx.beginPath(); ctx.moveTo(b.tr[0], b.tr[1]); for (let i = 1; i <= mid; i++) ctx.lineTo(b.tr[i * 2], b.tr[i * 2 + 1]); ctx.stroke();
+      // to'pga yaqin qismi: qalinroq va yorqinroq
+      ctx.strokeStyle = BALL; ctx.globalAlpha = S.dark ? 0.45 : 0.55; ctx.lineWidth = R * 1.5;
+      ctx.beginPath(); ctx.moveTo(b.tr[mid * 2], b.tr[mid * 2 + 1]); for (let i = mid + 1; i < n; i++) ctx.lineTo(b.tr[i * 2], b.tr[i * 2 + 1]); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = BALL;
@@ -777,14 +736,16 @@
   }
   const openModal = id => { $(id).hidden = false; };
   const closeModal = id => { $(id).hidden = true; };
+  const hudCache = {};
+  const setOnce = (k, v, fn) => { if (hudCache[k] !== v) { hudCache[k] = v; fn(v); } };
   function updateHUD() {
-    $('scoreOut').textContent = G.score;
-    $('recOut').textContent = Math.max(best, G.score);
-    // score rekordga yetsa yoki oshsa — yashil
+    // faqat o'zgarganda yangilaymiz — sahifa qayta hisoblanmaydi
+    setOnce('score', G.score, v => $('scoreOut').textContent = v);
+    setOnce('rec', Math.max(best, G.score), v => $('recOut').textContent = v);
     const pb = G.prevBest ?? best;
-    $('scoreOut').classList.toggle('win', pb > 0 && G.score >= pb);
-    $('fastBtn').hidden = !(screen === 'game' && G.state === 'fire');
-    $('fastLbl').textContent = fastMul() + 'x';
+    setOnce('win', pb > 0 && G.score >= pb, v => $('scoreOut').classList.toggle('win', v));   // rekordga yetsa — yashil
+    setOnce('fast', !(screen === 'game' && G.state === 'fire'), v => $('fastBtn').hidden = v);
+    setOnce('mul', fastMul() + 'x', v => $('fastLbl').textContent = v);
   }
   function startNew() { unlockAudio(); store.del('save2'); newGame(); show('game'); }
   function continueGame() { unlockAudio(); const s = store.get('save2', null); if (!s) return startNew(); restore(s); show('game'); }
