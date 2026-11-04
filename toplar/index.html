@@ -361,7 +361,16 @@
       g.gain.setValueAtTime(0.0001, st); g.gain.linearRampToValueAtTime(0.2, st + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, st + 0.16);
       o.connect(g); g.connect(master); o.start(st); o.stop(st + 0.2);
     },
-    pick() { if (!S.sfx || !actx) return; tone(880, 0.2, 0.05, 'sine'); tone(1318.5, 0.25, 0.04, 'sine', 0.06); },
+    // +1: yumshoq, past "bloop" — pufakcha yorilgandek
+    pick() {
+      if (!S.sfx || !actx) return;
+      const st = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(), f = actx.createBiquadFilter();
+      o.type = 'sine'; o.frequency.setValueAtTime(330, st); o.frequency.exponentialRampToValueAtTime(560, st + 0.09);
+      f.type = 'lowpass'; f.frequency.value = 1200;
+      g.gain.setValueAtTime(0.0001, st); g.gain.linearRampToValueAtTime(0.11, st + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, st + 0.16);
+      o.connect(f); f.connect(g); g.connect(master); o.start(st); o.stop(st + 0.2);
+    },
+    bonus() { if (!S.sfx || !actx) return; [659, 880, 1175].forEach((fq, i) => tone(fq, 0.3, 0.06, 'sine', i * 0.07)); },
     shoot() { if (!S.sfx || !actx) return; tone(523, 0.15, 0.03, 'sine'); },
     over() { if (!S.sfx || !actx) return; [523, 440, 349, 294].forEach((f, i) => tone(f, 0.5, 0.05, 'sine', i * 0.16)); },
     record() { if (!S.sfx || !actx) return; [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.4, 0.05, 'sine', i * 0.1)); },
@@ -458,12 +467,12 @@
     if (level < 3) count = Math.min(count, 3);
     // ball chegarasiga yetilgan bo'lsa — shu qatorga bonus shar (har biri bir marta)
     const mi = MILESTONES.findIndex(([th], i) => G.score >= th && !G.spawned.includes(i));
-    if (mi >= 0) { count = Math.min(count, 5); G.spawned.push(mi); G.picks.push({ c: cells[count + 1], r: -1, t: 0, v: MILESTONES[mi][1], mi }); }
+    if (mi >= 0) { count = Math.min(count, 5); G.spawned.push(mi); G.picks.push({ c: cells[count + 1], r: 0, t: 0, v: MILESTONES[mi][1], mi }); }
     for (let i = 0; i < count; i++) {
       const hp = level;   // yangi g'isht soni = tushishlar soni
-      G.bricks.push({ c: cells[i], r: -1, hp, scale: 0.4 });
+      G.bricks.push({ c: cells[i], r: 0, hp, scale: 0.4 });   // siljigandan keyin 1-qatorda bo'ladi, 0-qator bo'sh qoladi
     }
-    G.picks.push({ c: cells[count], r: -1, t: Math.random() * 6, v: 1 });
+    G.picks.push({ c: cells[count], r: 0, t: Math.random() * 6, v: 1 });
   }
   function shiftDown() {
     for (const b of G.bricks) b.r++;
@@ -543,7 +552,7 @@
         if (p.got) continue;
         const pr = p.mi === undefined ? 0.2 : 0.28;
         if (Math.hypot(b.x - (p.c + 0.5), b.y - (p.r + 0.5) * CH) < R + pr) {
-          p.got = true; G.pending += p.v || 1; sfx.pick();
+          p.got = true; G.pending += p.v || 1; p.mi === undefined ? sfx.pick() : sfx.bonus();
           burst(p.c + 0.5, (p.r + 0.5) * CH, '#e6283c', p.mi === undefined ? 8 : 24);
           if (p.mi !== undefined) { markBonus(p.mi); if (MILESTONES[p.mi][2]) sfx.record(); }
         }
@@ -631,11 +640,15 @@
       glow(cx, cy, 0.2 + breath * 0.14, 0.42);
       ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.085, 0, Math.PI * 2); ctx.fill();
     } else if (!MILESTONES[p.mi][2]) {
-      // bonus: qizil ikki halqa, ichida soni
-      glow(cx, cy, 0.34 + breath * 0.14, 0.45);
-      ring(cx, cy, 0.27, 0.045, '#b5172b'); ring(cx, cy, 0.2, 0.03, '#ff8a99');
-      ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.15, 0, Math.PI * 2); ctx.fill();
-      textAt('+' + p.v, cx, cy, p.v >= 100 ? 0.11 : 0.14, '#ffffff');
+      // bonus: qizil olmos, ichida soni
+      glow(cx, cy, 0.32 + breath * 0.12, 0.4);
+      const sc = 0.0115, P5 = [[0, -24], [22, -8], [14, 20], [-14, 20], [-22, -8]].map(([a, b]) => [cx + a * sc, cy + b * sc]);
+      ctx.beginPath(); P5.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
+      const gr = ctx.createLinearGradient(cx, cy - 24 * sc, cx, cy + 20 * sc); gr.addColorStop(0, '#ff6b7c'); gr.addColorStop(1, '#b5172b');
+      ctx.fillStyle = gr; ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.24)'; ctx.beginPath(); ctx.moveTo(P5[0][0], P5[0][1]); ctx.lineTo(P5[1][0], P5[1][1]); ctx.lineTo(cx, cy - 2 * sc); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.moveTo(cx, cy - 2 * sc); ctx.lineTo(P5[2][0], P5[2][1]); ctx.lineTo(P5[3][0], P5[3][1]); ctx.closePath(); ctx.fill();
+      textAt('+' + p.v, cx, cy + 3 * sc, p.v >= 100 ? 0.1 : 0.13, '#ffffff');
     } else {
       // MAX WIN: uch halqa va aylanuvchi nurlar
       glow(cx, cy, 0.5 + breath * 0.18, 0.5);
@@ -679,37 +692,37 @@
     // mo'ljal
     if (G.state === 'aim' && aim && aim.dir) {
       const l = launchPos(), d = aim.dir, hit = rayCast(l.x, l.y, d.x, d.y), tt = Math.min(hit.t, 16);
-      ctx.fillStyle = C.ball; ctx.globalAlpha = 0.55;
+      ctx.fillStyle = C.fg; ctx.globalAlpha = 0.45;
       for (let s = 0.3; s < tt; s += 0.3) { ctx.beginPath(); ctx.arc(l.x + d.x * s, l.y + d.y * s, 0.04, 0, Math.PI * 2); ctx.fill(); }
       const hx = l.x + d.x * tt, hy = l.y + d.y * tt;
-      ctx.globalAlpha = 0.8; ctx.strokeStyle = C.ball; ctx.lineWidth = 0.03;
+      ctx.globalAlpha = 0.7; ctx.strokeStyle = C.fg; ctx.lineWidth = 0.03;
       ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.stroke();
       let rx = d.x, ry = d.y; if (hit.nx) rx = -rx; if (hit.ny) ry = -ry;
       ctx.globalAlpha = 0.28;
       for (let s = 0.3; s < 1.2; s += 0.3) { ctx.beginPath(); ctx.arc(hx + rx * s, hy + ry * s, 0.032, 0, Math.PI * 2); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
-    // to'plar
-    ctx.fillStyle = C.ball;
+    // to'plar: limon sariq (#F7E733), nursiz va chegarasiz
+    const BALL = '#F7E733';
+    ctx.fillStyle = BALL;
     if (G.state === 'aim' || G.fired < G.balls) { const l = launchPos(); ctx.beginPath(); ctx.arc(l.x, l.y, R, 0, Math.PI * 2); ctx.fill(); }
     // to'plar orqasidagi yumshoq iz (kometa dumi): oxiriga qarab ingichkalashib, xiralashadi
     let drawn = 0;
     for (const b of G.flying) {
       if (!b.tr || b.tr.length < 4 || drawn++ > 220) continue;
       const n = b.tr.length / 2;
-      ctx.strokeStyle = C.ball; ctx.lineCap = 'round';
+      ctx.strokeStyle = BALL; ctx.lineCap = 'round';
       for (let i = 0; i < n - 1; i++) {
         const k = (i + 1) / n;
-        ctx.globalAlpha = (S.dark ? 0.5 : 0.32) * k * k;
+        ctx.globalAlpha = (S.dark ? 0.5 : 0.6) * k * k;
         ctx.lineWidth = R * 2 * (0.25 + 0.7 * k);
         const x2 = i === n - 2 ? b.x : b.tr[i * 2 + 2], y2 = i === n - 2 ? b.y : b.tr[i * 2 + 3];
         ctx.beginPath(); ctx.moveTo(b.tr[i * 2], b.tr[i * 2 + 1]); ctx.lineTo(x2, y2); ctx.stroke();
       }
     }
     ctx.globalAlpha = 1;
-    if (S.dark) { ctx.shadowColor = 'rgba(201,160,220,.9)'; ctx.shadowBlur = 8 * dpr; }
+    ctx.fillStyle = BALL;
     for (const b of G.flying) { ctx.beginPath(); ctx.arc(b.x, b.y, R, 0, Math.PI * 2); ctx.fill(); }
-    ctx.shadowBlur = 0;
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
     ctx.textAlign = 'center';
     if (rest > 0) textAt(`×${rest}`, clamp(G.launchX, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22, C.fg);
@@ -831,7 +844,7 @@
   // =================== Bonuslar oynasi ===================
   const gl = id => `<defs><radialGradient id="${id}"><stop offset="0" stop-color="#e6283c" stop-opacity=".5"/><stop offset="1" stop-color="#e6283c" stop-opacity="0"/></radialGradient></defs><circle cx="26" cy="26" r="25" fill="url(#${id})"/>`;
   const icoDot = () => `<svg viewBox="0 0 52 52">${gl('g1')}<circle cx="26" cy="26" r="7" fill="#e6283c"/></svg>`;
-  const icoRing = n => `<svg viewBox="0 0 52 52">${gl('g' + n)}<circle cx="26" cy="26" r="19" fill="none" stroke="#b5172b" stroke-width="3.4"/><circle cx="26" cy="26" r="14" fill="none" stroke="#ff8a99" stroke-width="2.2"/><circle cx="26" cy="26" r="11" fill="#e6283c"/><text x="26" y="30" font-size="${n >= 100 ? 7.5 : 10}" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+${n}</text></svg>`;
+  const icoRing = n => `<svg viewBox="0 0 52 52">${gl('g' + n)}<defs><linearGradient id="gm${n}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b7c"/><stop offset="1" stop-color="#b5172b"/></linearGradient></defs><polygon points="26,4 48,20 40,48 12,48 4,20" fill="url(#gm${n})"/><polygon points="26,4 48,20 26,26" fill="rgba(255,255,255,.24)"/><polygon points="26,26 40,48 12,48" fill="rgba(0,0,0,.12)"/><text x="26" y="34" font-size="${n >= 100 ? 10 : 13}" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+${n}</text></svg>`;
   const icoMax = () => `<svg viewBox="0 0 52 52">${gl('gm')}<g fill="rgba(230,40,60,.35)">${[...Array(12)].map((_, k) => `<path d="M24.6 26 L26 1 L27.4 26z" transform="rotate(${k * 30} 26 26)"/>`).join('')}</g><circle cx="26" cy="26" r="17" fill="none" stroke="#b5172b" stroke-width="3"/><circle cx="26" cy="26" r="13.5" fill="none" stroke="#e6283c" stroke-width="2.4"/><circle cx="26" cy="26" r="10.8" fill="none" stroke="#ff8a99" stroke-width="1.8"/><circle cx="26" cy="26" r="9" fill="#e6283c"/><text x="26" y="26" font-size="6.5" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+500</text><text x="26" y="32" font-size="4.6" font-weight="900" fill="#ffd6dc" text-anchor="middle" font-family="system-ui">MAX</text></svg>`;
   const fmt = n => n.toLocaleString(S.lang === 'ru' ? 'ru-RU' : 'en-US');
   function renderBonuses() {
