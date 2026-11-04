@@ -371,8 +371,16 @@
   };
   // =================== Maydon ===================
   // G'isht: eni 1, bo'yi 1/1.5 — eni bo'yidan 1.5 barobar katta
-  const COLS = 6, ROWS = 13, CH = 1 / 1.5, TOP = 0, FIELD = ROWS * CH, FLOOR = FIELD, BOARD_H = FLOOR + 0.35;
-  const LAST = ROWS - 1;   // pol chizig'iga tegib turgan qator: g'isht shu yerga yetsa — o'yin tugaydi
+  const COLS = 6, CH = 1 / 1.5, TOP = 0;
+  // Qatorlar soni ekran balandligiga qarab tanlanadi — maydon doim ekran eniga to'liq yoyiladi
+  let ROWS = 13, FIELD, FLOOR, BOARD_H, LAST, GRID;
+  function setRows(n) {
+    ROWS = n; FIELD = ROWS * CH; FLOOR = FIELD; BOARD_H = FLOOR + 0.35;
+    LAST = ROWS - 1;   // pol chizig'iga tegib turgan qator: g'isht shu yerga yetsa — o'yin tugaydi
+    GRID = new Array(ROWS * COLS).fill(null);
+  }
+  setRows(13);
+  let FIT = 13, AV = { w: 390, h: 600, top: 100 };
   const R = 0.11, SPEED = 17, GX = 0.05, GY = 0.05;
   let unit = 50, ox = 0, oy = 0, dpr = 1;
   function resize() {
@@ -384,8 +392,15 @@
     const hudH = $('hud').hidden ? 56 : Math.max(56, $('hud').getBoundingClientRect().height - st + 4);
     const topSpace = st + hudH + 10, botSpace = 72 + sb;
     const availH = h - topSpace - botSpace;
-    unit = Math.min(w / COLS, availH / BOARD_H);
-    ox = (w - unit * COLS) / 2; oy = topSpace + (availH - unit * BOARD_H) / 2;
+    AV = { w, h: availH, top: topSpace };
+    // to'liq ekran eni bilan nechta qator sig'adi
+    FIT = clamp(Math.floor((availH / (w / COLS) - 0.35) / CH), 9, 15);
+    if (!G) setRows(FIT);
+    layout();
+  }
+  function layout() {
+    unit = Math.min(AV.w / COLS, AV.h / BOARD_H);
+    ox = (AV.w - unit * COLS) / 2; oy = AV.top + (AV.h - unit * BOARD_H) / 2;
   }
   addEventListener('resize', resize);
 
@@ -399,19 +414,19 @@
 
   // =================== O'yin holati ===================
   let G = null;
-  const GRID = new Array(ROWS * COLS).fill(null);
   const fastMul = () => (G && G.score > 300000 ? 3 : 2);   // 300 000 dan keyin 3x
   let bonusGot = store.get('bonusGot2', []);
   function markBonus(i) { if (!bonusGot.includes(i)) { bonusGot.push(i); store.set('bonusGot2', bonusGot); } }
   // Ball chegaralaridagi bonuslar: [ball, to'p soni, MAX WIN?]
   const MILESTONES = [[10000, 3], [50000, 5], [100000, 7], [500000, 25], [1000000, 105, true]];
   function blank() { return { level: 1, score: 0, balls: 1, launchX: COLS / 2, bricks: [], picks: [], state: 'aim', flying: [], fired: 0, fireT: 0, firstLand: null, pending: 0, fast: false, over: false, drops: 0, spawned: [], auto: 0 }; }
-  function newGame() { G = blank(); G.prevBest = best; spawnRow(1); shiftDown(); store.set('save2', snapshot()); }
+  function newGame() { setRows(FIT); layout(); G = blank(); G.prevBest = best; spawnRow(1); shiftDown(); store.set('save2', snapshot()); }
   function snapshot() {
-    return { bv: 2, level: G.level, score: G.score, balls: G.balls, launchX: G.launchX, drops: G.drops, spawned: G.spawned,
+    return { bv: 2, rows: ROWS, level: G.level, score: G.score, balls: G.balls, launchX: G.launchX, drops: G.drops, spawned: G.spawned,
       bricks: G.bricks.map(b => ({ c: b.c, r: b.r, hp: b.hp })), picks: G.picks.filter(p => !p.got).map(p => ({ c: p.c, r: p.r, v: p.v, mi: p.mi })) };
   }
   function restore(s) {
+    setRows(s.rows || 13); layout();   // saqlangan o'yin o'z qatorlar soni bilan davom etadi
     G = Object.assign(blank(), { prevBest: best, level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX, drops: s.drops || 0, spawned: s.bv === 2 ? (s.spawned || []) : [] });
     G.bricks = s.bricks.filter(b => b.c < COLS).map(b => ({ ...b, scale: 1 })); G.picks = s.picks.filter(p => p.c < COLS).map(p => ({ ...p, t: 0 }));   // eski 7 ustunli saqlanmalar uchun
   }
@@ -747,7 +762,7 @@
     setOnce('fast', !(screen === 'game' && G.state === 'fire'), v => $('fastBtn').hidden = v);
     setOnce('mul', fastMul() + 'x', v => $('fastLbl').textContent = v);
   }
-  function startNew() { unlockAudio(); store.del('save2'); newGame(); show('game'); }
+  function startNew() { unlockAudio(); store.del('save2'); G = null; show('game'); resize(); newGame(); }
   function continueGame() { unlockAudio(); const s = store.get('save2', null); if (!s) return startNew(); restore(s); show('game'); }
   function pause() { if (screen !== 'game') return; if (G.state === 'aim') store.set('save2', snapshot()); show('pause'); }
   function gameOver() {
