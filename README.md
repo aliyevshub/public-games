@@ -67,4 +67,4 @@ Grafika: haqiqiy osmon panoramasi (HDR), fizikaga asoslangan materiallar, soyala
 
 **O'ynash:** https://aliyevshub.github.io/public-games/toplar/
 
-Barmoqni surib mo'ljal oling, to'plar g'ishtlarni sindiradi. Har yurishda g'ishtlar pastga tushadi, "+1" to'p qo'shadi. Cheksiz rejim, rekord, pauza, sozlamalar (musiqa, ovoz, qorong'i rejim), 4 rasmli qo'llanma. iPhone'da bosh ekranga o'rnatiladi va internetsiz ishlaydi.
+Barmoqni surib mo'ljal oling, to'plar g'ishtlarni sindiradi. Tepada SCORE va RECORD (rekordga yetganda score yashil bo'ladi). Ball bonuslari: 10 000 → +3 … 1 000 000 → +105 MAX WIN. Har yurishda g'ishtlar pastga tushadi, "+1" to'p qo'shadi. Cheksiz rejim, rekord, pauza, sozlamalar (musiqa, ovoz, qorong'i rejim), 4 rasmli qo'llanma. iPhone'da bosh ekranga o'rnatiladi va internetsiz ishlaydi.
