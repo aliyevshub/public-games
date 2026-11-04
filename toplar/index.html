@@ -588,7 +588,7 @@
       }
     }
     for (const b of G.flying) {
-      if (b.state === 'fly') { stepBall(b, dt); (b.tr || (b.tr = [])).push(b.x, b.y); if (b.tr.length > 16) b.tr.splice(0, 2); }
+      if (b.state === 'fly') { stepBall(b, dt); (b.tr || (b.tr = [])).push(b.x, b.y); if (b.tr.length > 12) b.tr.splice(0, 2); }   // iz uzunligi: ~30% qisqaroq
       else if (b.tr && b.tr.length) b.tr.splice(0, 2);   // qo'nganda dum asta yo'qoladi
       else if (b.state === 'land') {
         const tx = G.firstLand ?? G.launchX, d = tx - b.x, s = 28 * dt;
@@ -711,13 +711,12 @@
       for (let s = 0.3; s < 1.2; s += 0.3) { ctx.beginPath(); ctx.arc(hx + rx * s, hy + ry * s, 0.032, 0, Math.PI * 2); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
-    // to'plar: Lavanda (#C4B5FD) — qorong'ida yengil nur
+    // to'plar: Lavanda (#C4B5FD) — nursiz
     const BALL = '#C4B5FD', TAIL = '#A78BFA';
     const ballAt = (x, y) => {
       ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
     };
     ctx.fillStyle = BALL;
-    if (S.dark) { ctx.shadowColor = 'rgba(196,181,253,.9)'; ctx.shadowBlur = 14 * dpr; }
     if (G.state === 'aim' || G.fired < G.balls) { const l = launchPos(); ballAt(l.x, l.y); }
     ctx.shadowBlur = 0;
     // to'plar orqasidagi yumshoq iz (kometa dumi): oxiriga qarab ingichkalashib, xiralashadi
@@ -737,7 +736,6 @@
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = BALL;
-    if (S.dark) { ctx.shadowColor = 'rgba(196,181,253,.9)'; ctx.shadowBlur = 14 * dpr; }
     for (const b of G.flying) ballAt(b.x, b.y);
     ctx.shadowBlur = 0;
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
