@@ -77,6 +77,10 @@
   #ctrls { position: fixed; right: max(14px, var(--sr)); bottom: calc(14px + var(--sb)); z-index: 5; display: flex; gap: 10px; }
   #ctrls .icon-btn.on { background: var(--acc); border-color: var(--acc); }
   #ctrls .icon-btn.on svg { stroke: #fff; }
+  #ctrls .fast { width: auto; padding: 0 14px; gap: 6px; display: flex; align-items: center; height: 52px; border-radius: 16px; touch-action: none; }
+  #ctrls .fast b { font-size: 17px; font-weight: 900; }
+  #ctrls .fast.on b { color: #fff; }
+  #ctrls #recallBtn { height: 52px; width: 52px; border-radius: 16px; }
 
   /* ---------- Modallar ---------- */
   .modal { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(15,12,40,.38);
@@ -128,8 +132,8 @@
   <button class="icon-btn" id="recallBtn" type="button" aria-label="To'plarni qaytarish">
     <svg viewBox="0 0 24 24"><path d="M12 4v14M6 12l6 6 6-6"/></svg>
   </button>
-  <button class="icon-btn" id="fastBtn" type="button" aria-label="Tezlashtirish">
-    <svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg>
+  <button class="icon-btn fast" id="fastBtn" type="button" aria-label="Bosib turing — 2 barobar tezlik">
+    <svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><b>2x</b>
   </button>
 </div>
 
@@ -372,7 +376,6 @@
   // =================== Otish va fizika ===================
   function fire(dir) {
     G.state = 'fire'; G.dir = dir; G.fired = 0; G.fireT = 0; G.firstLand = null; G.flying = []; G.turnT = 0; G.fast = false;
-    $('fastBtn').classList.remove('on');
     sfx.shoot();
   }
   function stepBall(b, dt) {
@@ -427,10 +430,9 @@
     }
   }
   function updateTurn(dt) {
-    const sp = G.fast ? 3 : 1;
+    const sp = G.fast ? 2 : 1;
     dt *= sp;
     G.turnT += dt / sp;
-    if (G.turnT > 2.2 && $('fastBtn').hidden) $('fastBtn').hidden = false;
     // ketma-ket otish
     if (G.fired < G.balls) {
       G.fireT -= dt;
@@ -463,7 +465,7 @@
     G.picks = G.picks.filter(p => !p.got);
     G.launchX = G.firstLand ?? G.launchX;
     G.flying = []; G.state = 'aim'; G.fast = false; hitCount = 0;
-    $('fastBtn').hidden = true; $('fastBtn').classList.remove('on');
+    $('fastBtn').classList.remove('on');
     G.level++;
     spawnRow(G.level);
     shiftDown();
@@ -598,7 +600,7 @@
     $('scoreOut').textContent = G.level;
     $('recOut').textContent = Math.max(best, 0);
     $('recallBtn').hidden = G.state !== 'fire';
-    if (G.state !== 'fire') $('fastBtn').hidden = true;
+    $('fastBtn').hidden = G.state !== 'fire';
   }
   function startNew() { unlockAudio(); store.del('save'); newGame(); show('game'); }
   function continueGame() { unlockAudio(); const s = store.get('save', null); if (!s) return startNew(); restore(s); show('game'); }
@@ -623,7 +625,14 @@
   $('againBtn').onclick = startNew;
   $('overMenuBtn').onclick = () => show('menu');
   $('recallBtn').onclick = recall;
-  $('fastBtn').onclick = () => { G.fast = !G.fast; $('fastBtn').classList.toggle('on', G.fast); };
+  // 2x: tugmani bosib turganda tezlashadi, qo'yib yuborilganda oddiy tezlikka qaytadi
+  const fastOn = e => { e.preventDefault(); if (!G || G.state !== 'fire') return; G.fast = true; $('fastBtn').classList.add('on'); try { $('fastBtn').setPointerCapture(e.pointerId); } catch (err) {} };
+  const fastOff = () => { if (G) G.fast = false; $('fastBtn').classList.remove('on'); };
+  $('fastBtn').addEventListener('pointerdown', fastOn);
+  $('fastBtn').addEventListener('pointerup', fastOff);
+  $('fastBtn').addEventListener('pointercancel', fastOff);
+  $('fastBtn').addEventListener('lostpointercapture', fastOff);
+  $('fastBtn').addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
   // =================== Teginish ===================
@@ -662,7 +671,7 @@
             ${[0,1,2,3,4].map(i => `<circle cx="${90 + i * 20}" cy="185" r="7" fill="#1e1b3a"/>`).join('')}
             <text x="200" y="190" font-size="18" font-weight="900" fill="#1e1b3a">×5</text>
             <line x1="10" y1="204" x2="250" y2="204" stroke="#8b74ff" stroke-width="3" opacity=".5"/>` },
-    { t: 'Pastga tushirmang!', p: 'Har yurishdan keyin g\'ishtlar bir qator pastga tushadi. Biror g\'isht pastki chiziqqa yetsa — o\'yin tugaydi. ⏩ tezlashtiradi, ↓ to\'plarni qaytaradi.',
+    { t: 'Pastga tushirmang!', p: 'Har yurishdan keyin g\'ishtlar bir qator pastga tushadi. Biror g\'isht pastki chiziqqa yetsa — o\'yin tugaydi. ⏩ 2x tugmasini bosib tursangiz — 2 barobar tez, ↓ to\'plarni qaytaradi.',
       svg: `<rect x="0" y="150" width="260" height="54" fill="#ff4f6d" opacity=".12"/>
             <rect x="60" y="154" width="44" height="44" rx="8" fill="#ff7a8f"/><text x="82" y="183" font-size="20" font-weight="900" fill="#fff" text-anchor="middle">7</text>
             <rect x="150" y="100" width="44" height="44" rx="8" fill="#8b74ff"/><text x="172" y="129" font-size="20" font-weight="900" fill="#fff" text-anchor="middle">12</text>
