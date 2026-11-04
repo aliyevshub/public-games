@@ -371,13 +371,14 @@
   };
   // =================== Maydon ===================
   // G'isht: eni 1, bo'yi 1/1.5 — eni bo'yidan 1.5 barobar katta
-  const COLS = 6, CH = 1 / 1.5, TOP = 0;
+  const COLS = 6, CH0 = 1 / 1.5, TOP = 0;
+  let CH = CH0;   // telefonda bo'y yetmasa g'ishtlar biroz yassiroq bo'ladi, eni esa to'liq qoladi
   // Barcha qurilmalarda bir xil: 13 qator. Maydon sig'guncha keng, past ekranda o'rtada turadi
   let ROWS = 13, FIELD, FLOOR, BOARD_H, LAST, GRID;
-  function setRows(n) {
+  function setRows(n, keep) {
     ROWS = n; FIELD = ROWS * CH; FLOOR = FIELD; BOARD_H = FLOOR + 0.35;
     LAST = ROWS - 1;   // pol chizig'iga tegib turgan qator: g'isht shu yerga yetsa — o'yin tugaydi
-    GRID = new Array(ROWS * COLS).fill(null);
+    if (!keep || !GRID || GRID.length !== ROWS * COLS) GRID = new Array(ROWS * COLS).fill(null);
   }
   setRows(13);
   const FIT = 13; let AV = { w: 390, h: 600, top: 100 };
@@ -396,7 +397,12 @@
     layout();
   }
   function layout() {
-    unit = Math.min(AV.w / COLS, AV.h / BOARD_H);
+    // telefon: maydon doim to'liq ekran eniga; sig'masa — g'isht bo'yi kichrayadi (eng kami 1:2)
+    const uw = AV.w / COLS;
+    if ((ROWS * 0.5 + 0.35) * uw <= AV.h) CH = Math.min(CH0, (AV.h / uw - 0.35) / ROWS);
+    else CH = CH0;   // kompyuter: o'rtada, chetlarida joy qoladi
+    setRows(ROWS, true);
+    unit = Math.min(uw, AV.h / BOARD_H);
     ox = (AV.w - unit * COLS) / 2; oy = AV.top + (AV.h - unit * BOARD_H) / 2;
   }
   addEventListener('resize', resize);
