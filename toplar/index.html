@@ -350,10 +350,16 @@
   function aimDir(p) {
     const l = launchPos();
     let dx = p.x - l.x, dy = p.y - l.y;
-    if (dy > -0.25) return null;
-    const len = Math.hypot(dx, dy); dx /= len; dy /= len;
-    const minY = Math.sin(8 * Math.PI / 180);
-    if (-dy < minY) { dy = -minY; dx = Math.sign(dx) * Math.cos(8 * Math.PI / 180); }
+    const len = Math.hypot(dx, dy);
+    // barmoq to'pga juda yaqin bo'lsa — yo'nalishni aniqlab bo'lmaydi
+    if (len < 0.15) return aim && aim.dir ? aim.dir : null;
+    dx /= len; dy /= len;
+    // barmoq pastga tushsa ham chiziq yo'qolmaydi: eng past burchakda (8°) to'xtaydi
+    const MIN = 8 * Math.PI / 180;
+    if (-dy < Math.sin(MIN)) {
+      const side = dx !== 0 ? Math.sign(dx) : (aim && aim.dir ? Math.sign(aim.dir.x) || 1 : 1);
+      dx = side * Math.cos(MIN); dy = -Math.sin(MIN);
+    }
     return { x: dx, y: dy };
   }
   function rayCast(x, y, dx, dy) {
@@ -566,14 +572,12 @@
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
     if (rest > 0) {
       const l = launchPos();
-      ctx.font = '900 0.3px ui-rounded, -apple-system, system-ui, sans-serif'; ctx.fillStyle = C.fg;
-      ctx.textAlign = l.x > COLS - 1 ? 'right' : 'left';
-      ctx.fillText(`×${rest}`, l.x + (l.x > COLS - 1 ? -0.25 : 0.25), l.y + 0.02);
-      ctx.textAlign = 'center';
+      ctx.font = '900 0.24px ui-rounded, -apple-system, system-ui, sans-serif'; ctx.fillStyle = C.fg;
+      ctx.fillText(`×${rest}`, clamp(l.x, 0.3, COLS - 0.3), FLOOR + 0.2);
     }
     if (G.pending > 0 && G.state === 'fire') {
       ctx.font = '900 0.26px ui-rounded, -apple-system, system-ui, sans-serif'; ctx.fillStyle = C.acc2;
-      ctx.fillText(`+${G.pending}`, (G.firstLand ?? G.launchX), FLOOR + 0.2);
+      ctx.fillText(`+${G.pending}`, clamp((G.firstLand ?? G.launchX) + 0.55, 0.3, COLS - 0.3), FLOOR + 0.2);
     }
     // zarrachalar
     for (const p of parts) {
