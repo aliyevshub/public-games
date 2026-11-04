@@ -372,7 +372,7 @@
   // =================== Maydon ===================
   // G'isht: eni 1, bo'yi 1/1.5 — eni bo'yidan 1.5 barobar katta
   const COLS = 6, CH = 1 / 1.5, TOP = 0;
-  // Qatorlar soni ekran balandligiga qarab tanlanadi — maydon doim ekran eniga to'liq yoyiladi
+  // Barcha qurilmalarda bir xil: 13 qator. Maydon sig'guncha keng, past ekranda o'rtada turadi
   let ROWS = 13, FIELD, FLOOR, BOARD_H, LAST, GRID;
   function setRows(n) {
     ROWS = n; FIELD = ROWS * CH; FLOOR = FIELD; BOARD_H = FLOOR + 0.35;
@@ -380,7 +380,7 @@
     GRID = new Array(ROWS * COLS).fill(null);
   }
   setRows(13);
-  let FIT = 13, AV = { w: 390, h: 600, top: 100 };
+  const FIT = 13; let AV = { w: 390, h: 600, top: 100 };
   const R = 0.11, SPEED = 17, GX = 0.05, GY = 0.05;
   let unit = 50, ox = 0, oy = 0, dpr = 1;
   function resize() {
@@ -393,9 +393,6 @@
     const topSpace = st + hudH + 10, botSpace = 72 + sb;
     const availH = h - topSpace - botSpace;
     AV = { w, h: availH, top: topSpace };
-    // to'liq ekran eni bilan nechta qator sig'adi
-    FIT = clamp(Math.floor((availH / (w / COLS) - 0.35) / CH), 9, 15);
-    if (!G) setRows(FIT);
     layout();
   }
   function layout() {
@@ -562,7 +559,7 @@
     if (G.fired >= G.balls && G.flying.every(b => b.state === 'done')) endTurn();
   }
   function endTurn() {
-    G.balls += G.pending; G.pending = 0;
+    G.balls += G.pending + 1; G.pending = 0;   // har pog'ona tushganda +1 to'p
     G.picks = G.picks.filter(p => !p.got);
     G.launchX = G.firstLand ?? G.launchX;
     G.flying = []; G.state = 'aim';
