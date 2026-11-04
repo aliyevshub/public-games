@@ -286,15 +286,35 @@
   document.querySelectorAll('#langs button').forEach(b => b.onclick = () => { S.lang = b.dataset.l; saveSettings(); applyLang(); });
 
   // =================== Ovoz ===================
-  let actx = null, master = null, musicBus = null, musicTimer = null, nextNote = 0, step = 0, lp = null;
+  let actx = null, master = null, musicBus = null, musicTimer = null, nextNote = 0, step = 0, lp = null, noiseBuf = null;
+  // iPhone ovozsiz rejimda Web Audio'ni o'chiradi. Ovozni "media" sifatida chalish uchun:
+  // 1) audioSession turini 'playback' qilamiz (yangi iOS), 2) jim audio faylni aylantirib turamiz (eski iOS).
+  let mediaEl = null;
+  function silentWav() {
+    const n = 4410, b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+    const w = (o, str) => [...str].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 44100, true); v.setUint32(28, 88200, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+  }
+  function mediaMode() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    try {
+      if (!mediaEl) { mediaEl = document.createElement('audio'); mediaEl.src = silentWav(); mediaEl.loop = true; mediaEl.setAttribute('playsinline', ''); mediaEl.volume = 0.01; }
+      if (mediaEl.paused) mediaEl.play().catch(() => {});
+    } catch (e) {}
+  }
   function unlockAudio() {
+    mediaMode();
     if (!actx) {
       try {
         actx = new (window.AudioContext || window.webkitAudioContext)();
         master = actx.createGain(); master.gain.value = S.vol; master.connect(actx.destination);
         // musiqa: juda past va yumshoq (yuqori chastotalar kesilgan)
         lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; lp.connect(master);
-        musicBus = actx.createGain(); musicBus.gain.value = 0.35; musicBus.connect(lp);
+        musicBus = actx.createGain(); musicBus.gain.value = 0.55; musicBus.connect(lp);
+        noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.25, actx.sampleRate);
+        const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
       } catch (e) { return; }
     }
     if (actx.state === 'suspended') actx.resume();
@@ -307,17 +327,30 @@
     g.gain.setValueAtTime(0.0001, st); g.gain.linearRampToValueAtTime(vol, st + attack); g.gain.exponentialRampToValueAtTime(0.0001, st + len);
     o.connect(g); g.connect(bus); o.start(st); o.stop(st + len + 0.05);
   }
-  // urilish: nozik "ting" — pentatonika notalari, sekin so'nadi
-  const TING = [1046.5, 1174.7, 1318.5, 1568, 1760, 2093];
-  let lastHit = 0, tingI = 0;
+  // qisqa shovqin zarbasi (filtrlangan) — urilish ovozining "qattiq" qismi
+  function click(freq, q, len, vol, type = 'bandpass') {
+    const st = actx.currentTime, src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = noiseBuf; src.playbackRate.value = 0.9 + Math.random() * 0.2;
+    f.type = type; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(vol, st); g.gain.exponentialRampToValueAtTime(0.0001, st + len);
+    src.connect(f); f.connect(g); g.connect(master); src.start(st, Math.random() * 0.15); src.stop(st + len + 0.02);
+  }
+  // urilish: haqiqiy to'p g'ishtga tekkandagi kabi qisqa "tuk".
+  // Har biri alohida eshitiladi; juda ko'p bo'lsa — soniyasiga ~30 tadan oshmaydi.
+  let lastHit = 0;
   const sfx = {
     hit() {
-      if (!S.sfx || !actx || actx.currentTime - lastHit < 0.035) return;
+      if (!S.sfx || !actx || !noiseBuf || actx.currentTime - lastHit < 0.033) return;
       lastHit = actx.currentTime;
-      const f = TING[(tingI++) % TING.length];
-      tone(f, 0.22, 0.035, 'sine'); tone(f * 2, 0.12, 0.008, 'sine');
+      const k = 0.85 + Math.random() * 0.3;
+      click(2200 * k, 2.2, 0.03, 0.32);                 // qattiq "chiq"
+      tone(380 * k, 0.07, 0.16, 'sine', 0, master, 0.002); // tanasi — past "tuk"
     },
-    brk() { if (!S.sfx || !actx) return; tone(1568, 0.3, 0.04, 'sine'); tone(2093, 0.35, 0.025, 'sine', 0.05); },
+    brk() {
+      if (!S.sfx || !actx || !noiseBuf) return;
+      click(3600, 0.9, 0.09, 0.3, 'highpass');           // sinish "chirs"
+      tone(900, 0.12, 0.09, 'triangle', 0, master, 0.002); tone(1350, 0.16, 0.05, 'sine', 0.02);
+    },
     pick() { if (!S.sfx || !actx) return; tone(880, 0.2, 0.05, 'sine'); tone(1318.5, 0.25, 0.04, 'sine', 0.06); },
     shoot() { if (!S.sfx || !actx) return; tone(523, 0.15, 0.03, 'sine'); },
     over() { if (!S.sfx || !actx) return; [523, 440, 349, 294].forEach((f, i) => tone(f, 0.5, 0.05, 'sine', i * 0.16)); },
@@ -331,8 +364,8 @@
     while (nextNote < actx.currentTime + 0.5) {
       const when = Math.max(0, nextNote - actx.currentTime);
       const chord = [0, 3, 1, 4][Math.floor(step / 8) % 4];
-      if (step % 2 === 0 && Math.random() < 0.7) tone(nf(SCALE[(step / 2 + chord) % 5] + 12), 2.4, 0.018, 'sine', when, musicBus, 0.35);
-      if (step % 8 === 0) tone(nf(SCALE[chord] - 12), 4.5, 0.022, 'sine', when, musicBus, 0.8);
+      if (step % 2 === 0 && Math.random() < 0.7) tone(nf(SCALE[(step / 2 + chord) % 5] + 12), 2.4, 0.03, 'sine', when, musicBus, 0.35);
+      if (step % 8 === 0) tone(nf(SCALE[chord] - 12), 4.5, 0.038, 'sine', when, musicBus, 0.8);
       step++; nextNote += 0.6;
     }
   }
@@ -389,8 +422,7 @@
     const mi = MILESTONES.findIndex(([th], i) => G.score >= th && !G.spawned.includes(i));
     if (mi >= 0) { count = Math.min(count, 5); G.spawned.push(mi); G.picks.push({ c: cells[count + 1], r: -1, t: 0, v: MILESTONES[mi][1], mi }); }
     for (let i = 0; i < count; i++) {
-      let hp = level;
-      if (level > 4 && Math.random() < 0.18) hp = level * 2;
+      const hp = level;   // yangi g'isht soni = tushishlar soni
       G.bricks.push({ c: cells[i], r: -1, hp, scale: 0.4 });
     }
     G.picks.push({ c: cells[count], r: -1, t: Math.random() * 6, v: 1 });
