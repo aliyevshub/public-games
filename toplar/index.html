@@ -230,7 +230,7 @@
       pts: 'points', balls: 'balls', maxd: 'The biggest prize of the game.', gotIt: 'received', soon: 'not yet',
       s: [['Aim', 'Touch the screen and drag — the dotted line shows where the balls will go. Release to shoot.'],
           ['Break the bricks', 'The number is how many hits a brick needs. Every hit gives you 1 point. Lighter colors mean fewer hits left.'],
-          ['Collect balls', 'Hit a red ball to get +1 ball on your next shot. Every 3 drops you also get +1 ball. See 🎁 for big bonuses!'],
+          ['Collect balls', 'Hit a red ball to get +1 ball on your next shot. See 🎁 for big score bonuses!'],
           ['Don\'t let them reach the bottom', 'After every shot the bricks move down one row. If a brick reaches the bottom line, the game ends. Hold 2x to speed up.']] },
     uz: { best: 'Rekord', continue: 'DAVOM ETISH', play: 'BOSHLASH', paused: 'Pauza', resume: 'Davom etish', restart: 'Qaytadan boshlash', settings: 'Sozlamalar', menu: 'Menyu',
       music: 'Musiqa', sfx: 'Ovoz effektlari', volume: 'Balandlik', dark: 'Qorong\'i rejim', lang: 'Til', done: 'Tayyor', back: 'Orqaga', next: 'Keyingi ›', got: 'Tushunarli ✓',
@@ -240,7 +240,7 @@
       pts: 'ball', balls: 'to\'p', maxd: 'O\'yindagi eng katta sovrin.', gotIt: 'olingan', soon: 'hali yo\'q',
       s: [['Mo\'ljal oling', 'Ekranga barmoqni qo\'yib suring — nuqtali chiziq to\'plar qayerga borishini ko\'rsatadi. Qo\'yib yuborsangiz, otiladi.'],
           ['G\'ishtlarni sindiring', 'Son — g\'isht necha zarbada sinishi. Har bir zarba 1 ball beradi. Rang ochroq bo\'lsa, oz zarba qolgan.'],
-          ['To\'p yig\'ing', 'Qizil sharni ursangiz, keyingi otishda +1 to\'p. Har 3 tushishda ham +1 to\'p qo\'shiladi. Katta bonuslar — 🎁 bo\'limida!'],
+          ['To\'p yig\'ing', 'Qizil sharni ursangiz, keyingi otishda +1 to\'p. Katta ball bonuslari — 🎁 bo\'limida!'],
           ['Pastga tushirmang', 'Har otishdan keyin g\'ishtlar bir qator pastga tushadi. G\'isht pastki chiziqqa yetsa — o\'yin tugaydi. 2x ni bosib tursangiz, tezlashadi.']] },
     ru: { best: 'Рекорд', continue: 'ПРОДОЛЖИТЬ', play: 'ИГРАТЬ', paused: 'Пауза', resume: 'Продолжить', restart: 'Начать заново', settings: 'Настройки', menu: 'Меню',
       music: 'Музыка', sfx: 'Звуковые эффекты', volume: 'Громкость', dark: 'Тёмная тема', lang: 'Язык', done: 'Готово', back: 'Назад', next: 'Далее ›', got: 'Понятно ✓',
@@ -250,7 +250,7 @@
       pts: 'очков', balls: 'шаров', maxd: 'Самый большой приз в игре.', gotIt: 'получен', soon: 'ещё нет',
       s: [['Прицельтесь', 'Коснитесь экрана и ведите пальцем — пунктир показывает, куда полетят шары. Отпустите, чтобы выстрелить.'],
           ['Ломайте кирпичи', 'Число — сколько ударов нужно кирпичу. Каждый удар даёт 1 очко. Чем светлее цвет, тем меньше ударов осталось.'],
-          ['Собирайте шары', 'Попадите в красный шар — +1 шар в следующем броске. Каждые 3 опускания тоже +1 шар. Большие бонусы — в разделе 🎁!'],
+          ['Собирайте шары', 'Попадите в красный шар — +1 шар в следующем броске. Большие бонусы за очки — в разделе 🎁!'],
           ['Не пускайте вниз', 'После каждого броска кирпичи опускаются на ряд. Если кирпич коснётся нижней линии — игра окончена. Удерживайте 2x для ускорения.']] },
   };
   const S = Object.assign({ music: true, sfx: true, vol: 0.7, dark: false, lang: 'en' }, store.get('settings', {}));
@@ -572,7 +572,8 @@
       }
     }
     for (const b of G.flying) {
-      if (b.state === 'fly') stepBall(b, dt);
+      if (b.state === 'fly') { stepBall(b, dt); (b.tr || (b.tr = [])).push(b.x, b.y); if (b.tr.length > 16) b.tr.splice(0, 2); }
+      else if (b.tr && b.tr.length) b.tr.splice(0, 2);   // qo'nganda dum asta yo'qoladi
       else if (b.state === 'land') {
         const tx = G.firstLand ?? G.launchX, d = tx - b.x, s = 28 * dt;
         if (Math.abs(d) <= s) { b.x = tx; b.state = 'done'; } else b.x += Math.sign(d) * s;
@@ -589,7 +590,6 @@
     G.flying = []; G.state = 'aim';
     G.level++;
     G.drops++;
-    if (G.drops % 3 === 0) { G.balls++; G.auto = 1.6; }   // har 3 tushishda avtomatik +1 to'p
     spawnRow(G.level); shiftDown();
     if (G.bricks.some(b => b.r >= ROWS)) { gameOver(); return; }
     store.set('save2', snapshot());
@@ -692,7 +692,24 @@
     // to'plar
     ctx.fillStyle = C.ball;
     if (G.state === 'aim' || G.fired < G.balls) { const l = launchPos(); ctx.beginPath(); ctx.arc(l.x, l.y, R, 0, Math.PI * 2); ctx.fill(); }
+    // to'plar orqasidagi yumshoq iz (kometa dumi): oxiriga qarab ingichkalashib, xiralashadi
+    let drawn = 0;
+    for (const b of G.flying) {
+      if (!b.tr || b.tr.length < 4 || drawn++ > 220) continue;
+      const n = b.tr.length / 2;
+      ctx.strokeStyle = C.ball; ctx.lineCap = 'round';
+      for (let i = 0; i < n - 1; i++) {
+        const k = (i + 1) / n;
+        ctx.globalAlpha = (S.dark ? 0.5 : 0.32) * k * k;
+        ctx.lineWidth = R * 2 * (0.25 + 0.7 * k);
+        const x2 = i === n - 2 ? b.x : b.tr[i * 2 + 2], y2 = i === n - 2 ? b.y : b.tr[i * 2 + 3];
+        ctx.beginPath(); ctx.moveTo(b.tr[i * 2], b.tr[i * 2 + 1]); ctx.lineTo(x2, y2); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (S.dark) { ctx.shadowColor = 'rgba(201,160,220,.9)'; ctx.shadowBlur = 8 * dpr; }
     for (const b of G.flying) { ctx.beginPath(); ctx.arc(b.x, b.y, R, 0, Math.PI * 2); ctx.fill(); }
+    ctx.shadowBlur = 0;
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
     ctx.textAlign = 'center';
     if (rest > 0) textAt(`×${rest}`, clamp(G.launchX, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22, C.fg);
@@ -814,14 +831,12 @@
   // =================== Bonuslar oynasi ===================
   const gl = id => `<defs><radialGradient id="${id}"><stop offset="0" stop-color="#e6283c" stop-opacity=".5"/><stop offset="1" stop-color="#e6283c" stop-opacity="0"/></radialGradient></defs><circle cx="26" cy="26" r="25" fill="url(#${id})"/>`;
   const icoDot = () => `<svg viewBox="0 0 52 52">${gl('g1')}<circle cx="26" cy="26" r="7" fill="#e6283c"/></svg>`;
-  const icoAuto = () => `<svg viewBox="0 0 52 52"><path d="M26 8v20M18 21l8 8 8-8" stroke="var(--acc)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="26" y="46" font-size="14" font-weight="900" fill="#e6283c" text-anchor="middle" font-family="system-ui">+1</text></svg>`;
   const icoRing = n => `<svg viewBox="0 0 52 52">${gl('g' + n)}<circle cx="26" cy="26" r="19" fill="none" stroke="#b5172b" stroke-width="3.4"/><circle cx="26" cy="26" r="14" fill="none" stroke="#ff8a99" stroke-width="2.2"/><circle cx="26" cy="26" r="11" fill="#e6283c"/><text x="26" y="30" font-size="${n >= 100 ? 7.5 : 10}" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+${n}</text></svg>`;
   const icoMax = () => `<svg viewBox="0 0 52 52">${gl('gm')}<g fill="rgba(230,40,60,.35)">${[...Array(12)].map((_, k) => `<path d="M24.6 26 L26 1 L27.4 26z" transform="rotate(${k * 30} 26 26)"/>`).join('')}</g><circle cx="26" cy="26" r="17" fill="none" stroke="#b5172b" stroke-width="3"/><circle cx="26" cy="26" r="13.5" fill="none" stroke="#e6283c" stroke-width="2.4"/><circle cx="26" cy="26" r="10.8" fill="none" stroke="#ff8a99" stroke-width="1.8"/><circle cx="26" cy="26" r="9" fill="#e6283c"/><text x="26" y="26" font-size="6.5" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+500</text><text x="26" y="32" font-size="4.6" font-weight="900" fill="#ffd6dc" text-anchor="middle" font-family="system-ui">MAX</text></svg>`;
   const fmt = n => n.toLocaleString(S.lang === 'ru' ? 'ru-RU' : 'en-US');
   function renderBonuses() {
     const st = i => bonusGot.includes(i) ? `<i class="ok">✓ ${t('gotIt')}</i>` : `<i>${t('soon')}</i>`;
     let h = `<div class="bitem">${icoDot()}<div><b>${t('b1')}</b><span>${t('b1d')}</span></div><i></i></div>`;
-    h += `<div class="bitem">${icoAuto()}<div><b>${t('b3')}</b><span>${t('b3d')}</span></div><i></i></div>`;
     h += `<div class="bhead">${t('bm')}</div><div class="bsub">${t('bmd')}</div>`;
     MILESTONES.forEach(([th, v, max], i) => {
       h += `<div class="bitem">${max ? icoMax() : icoRing(v)}<div><b>${fmt(th)} ${t('pts')} → +${v} ${t('balls')}${max ? ' · MAX WIN' : ''}</b>${max ? `<span>${t('maxd')}</span>` : ''}</div>${st(i)}</div>`;
