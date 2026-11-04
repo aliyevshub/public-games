@@ -60,3 +60,11 @@ Bosh ekranga qo'shilsa, ilova kabi to'liq ekranda va internetsiz ishlaydi.
 Grafika: haqiqiy osmon panoramasi (HDR), fizikaga asoslangan materiallar, soyalar, real 3D modellar. Sifat: Avto / Past / O'rta / Yuqori, FPS hisoblagichi.
 
 3D modellar, teksturalar va osmon: [Poly Haven](https://polyhaven.com) — CC0 litsenziyasi.
+
+---
+
+# Neon To'plar 🟣 — g'isht sindirish
+
+**O'ynash:** https://aliyevshub.github.io/public-games/toplar/
+
+Barmoqni surib mo'ljal oling, to'plar g'ishtlarni sindiradi. Har yurishda g'ishtlar pastga tushadi, "+1" to'p qo'shadi. Cheksiz rejim, rekord, pauza, sozlamalar (musiqa, ovoz, qorong'i rejim), 4 rasmli qo'llanma. iPhone'da bosh ekranga o'rnatiladi va internetsiz ishlaydi.
