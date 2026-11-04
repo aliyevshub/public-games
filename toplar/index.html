@@ -348,8 +348,13 @@
     },
     brk() {
       if (!S.sfx || !actx || !noiseBuf) return;
-      click(3600, 0.9, 0.09, 0.3, 'highpass');           // sinish "chirs"
-      tone(900, 0.12, 0.09, 'triangle', 0, master, 0.002); tone(1350, 0.16, 0.05, 'sine', 0.02);
+      // sinish: yumshoq, chuqurroq "puk" — yog'och/plastmassa bo'lagi tushgandek
+      const k = 0.92 + Math.random() * 0.16;
+      click(900 * k, 1.4, 0.06, 0.22, 'lowpass');              // yumshoq zarba (yuqori chastotalarsiz)
+      const st = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(260 * k, st); o.frequency.exponentialRampToValueAtTime(140 * k, st + 0.12);
+      g.gain.setValueAtTime(0.0001, st); g.gain.linearRampToValueAtTime(0.2, st + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, st + 0.16);
+      o.connect(g); g.connect(master); o.start(st); o.stop(st + 0.2);
     },
     pick() { if (!S.sfx || !actx) return; tone(880, 0.2, 0.05, 'sine'); tone(1318.5, 0.25, 0.04, 'sine', 0.06); },
     shoot() { if (!S.sfx || !actx) return; tone(523, 0.15, 0.03, 'sine'); },
