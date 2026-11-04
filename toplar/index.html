@@ -447,18 +447,18 @@
   let G = null;
   const GRID = new Array(ROWS * COLS).fill(null);
   const fastMul = () => (G && G.score > 300000 ? 3 : 2);   // 300 000 dan keyin 3x
-  let bonusGot = store.get('bonusGot', []);
-  function markBonus(i) { if (!bonusGot.includes(i)) { bonusGot.push(i); store.set('bonusGot', bonusGot); } }
+  let bonusGot = store.get('bonusGot2', []);
+  function markBonus(i) { if (!bonusGot.includes(i)) { bonusGot.push(i); store.set('bonusGot2', bonusGot); } }
   // Ball chegaralaridagi bonuslar: [ball, to'p soni, MAX WIN?]
-  const MILESTONES = [[1000, 3], [2000, 5], [5000, 7], [10000, 10], [100000, 50], [300000, 150], [1000000, 500, true]];
+  const MILESTONES = [[10000, 3], [50000, 5], [100000, 7], [500000, 25], [1000000, 105, true]];
   function blank() { return { level: 1, score: 0, balls: 1, launchX: COLS / 2, bricks: [], picks: [], state: 'aim', flying: [], fired: 0, fireT: 0, firstLand: null, pending: 0, fast: false, over: false, drops: 0, spawned: [], auto: 0 }; }
   function newGame() { G = blank(); spawnRow(1); shiftDown(); store.set('save2', snapshot()); }
   function snapshot() {
-    return { level: G.level, score: G.score, balls: G.balls, launchX: G.launchX, drops: G.drops, spawned: G.spawned,
+    return { bv: 2, level: G.level, score: G.score, balls: G.balls, launchX: G.launchX, drops: G.drops, spawned: G.spawned,
       bricks: G.bricks.map(b => ({ c: b.c, r: b.r, hp: b.hp })), picks: G.picks.filter(p => !p.got).map(p => ({ c: p.c, r: p.r, v: p.v, mi: p.mi })) };
   }
   function restore(s) {
-    G = Object.assign(blank(), { level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX, drops: s.drops || 0, spawned: s.spawned || [] });
+    G = Object.assign(blank(), { level: s.level, score: s.score || 0, balls: s.balls, launchX: s.launchX, drops: s.drops || 0, spawned: s.bv === 2 ? (s.spawned || []) : [] });
     G.bricks = s.bricks.map(b => ({ ...b, scale: 1 })); G.picks = s.picks.map(p => ({ ...p, t: 0 }));
   }
   function spawnRow(level) {
@@ -550,7 +550,7 @@
       if (Math.abs(b.vy) < SPEED * 0.12) { b.vy = (b.vy <= 0 ? -1 : 1) * SPEED * 0.12; const s = Math.hypot(b.vx, b.vy); b.vx *= SPEED / s; b.vy *= SPEED / s; }
       for (const p of G.picks) {
         if (p.got) continue;
-        const pr = p.mi === undefined ? 0.2 : 0.28;
+        const pr = p.mi === undefined ? 0.2 : 0.22;
         if (Math.hypot(b.x - (p.c + 0.5), b.y - (p.r + 0.5) * CH) < R + pr) {
           p.got = true; G.pending += p.v || 1; p.mi === undefined ? sfx.pick() : sfx.bonus();
           burst(p.c + 0.5, (p.r + 0.5) * CH, '#e6283c', p.mi === undefined ? 8 : 24);
@@ -640,15 +640,17 @@
       glow(cx, cy, 0.2 + breath * 0.14, 0.42);
       ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.085, 0, Math.PI * 2); ctx.fill();
     } else if (!MILESTONES[p.mi][2]) {
-      // bonus: qizil olmos, ichida soni
-      glow(cx, cy, 0.32 + breath * 0.12, 0.4);
-      const sc = 0.0115, P5 = [[0, -24], [22, -8], [14, 20], [-14, 20], [-22, -8]].map(([a, b]) => [cx + a * sc, cy + b * sc]);
-      ctx.beginPath(); P5.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
-      const gr = ctx.createLinearGradient(cx, cy - 24 * sc, cx, cy + 20 * sc); gr.addColorStop(0, '#ff6b7c'); gr.addColorStop(1, '#b5172b');
-      ctx.fillStyle = gr; ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.24)'; ctx.beginPath(); ctx.moveTo(P5[0][0], P5[0][1]); ctx.lineTo(P5[1][0], P5[1][1]); ctx.lineTo(cx, cy - 2 * sc); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.moveTo(cx, cy - 2 * sc); ctx.lineTo(P5[2][0], P5[2][1]); ctx.lineTo(P5[3][0], P5[3][1]); ctx.closePath(); ctx.fill();
-      textAt('+' + p.v, cx, cy + 3 * sc, p.v >= 100 ? 0.1 : 0.13, '#ffffff');
+      // bonus: kichik qizil shar, atrofidan nozik to'lqinlar tarqaladi
+      for (let w = 0; w < 2; w++) {
+        const ph = (p.t * 0.7 + w * 0.5) % 1;                 // 0..1
+        const a0 = ctx.globalAlpha;
+        ctx.globalAlpha = a0 * (1 - ph) * 0.55;
+        ctx.strokeStyle = '#e6283c'; ctx.lineWidth = 0.022;
+        ctx.beginPath(); ctx.arc(cx, cy, 0.14 + ph * 0.14, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = a0;
+      }
+      ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.13, 0, Math.PI * 2); ctx.fill();
+      textAt('+' + p.v, cx, cy, p.v >= 100 ? 0.085 : 0.105, '#ffffff');
     } else {
       // MAX WIN: uch halqa va aylanuvchi nurlar
       glow(cx, cy, 0.5 + breath * 0.18, 0.5);
@@ -657,7 +659,7 @@
       ctx.restore();
       ring(cx, cy, 0.31, 0.04, '#b5172b'); ring(cx, cy, 0.25, 0.032, '#e6283c'); ring(cx, cy, 0.2, 0.025, '#ff8a99');
       ctx.fillStyle = '#e6283c'; ctx.beginPath(); ctx.arc(cx, cy, 0.16, 0, Math.PI * 2); ctx.fill();
-      textAt('+500', cx, cy - 0.025, 0.1, '#ffffff'); textAt('MAX', cx, cy + 0.07, 0.06, '#ffd6dc');
+      textAt('+' + p.v, cx, cy - 0.025, 0.1, '#ffffff'); textAt('MAX', cx, cy + 0.07, 0.06, '#ffd6dc');
     }
   }
   function draw(dt) {
@@ -702,19 +704,26 @@
       for (let s = 0.3; s < 1.2; s += 0.3) { ctx.beginPath(); ctx.arc(hx + rx * s, hy + ry * s, 0.032, 0, Math.PI * 2); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
-    // to'plar: limon sariq (#F7E733), nursiz va chegarasiz
-    const BALL = '#F7E733';
+    // to'plar: Limon 3 (#F7E733) — qorong'ida yengil nur, yorug'da ingichka chegara
+    const BALL = '#F7E733', TAIL = '#C9E000';
+    const ballAt = (x, y) => {
+      ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
+      if (!S.dark) { ctx.lineWidth = 1.3 / unit; ctx.strokeStyle = 'rgba(120,120,0,.55)'; ctx.stroke(); }
+    };
     ctx.fillStyle = BALL;
-    if (G.state === 'aim' || G.fired < G.balls) { const l = launchPos(); ctx.beginPath(); ctx.arc(l.x, l.y, R, 0, Math.PI * 2); ctx.fill(); }
+    if (S.dark) { ctx.shadowColor = 'rgba(255,240,80,.9)'; ctx.shadowBlur = 14 * dpr; }
+    if (G.state === 'aim' || G.fired < G.balls) { const l = launchPos(); ballAt(l.x, l.y); }
+    ctx.shadowBlur = 0;
     // to'plar orqasidagi yumshoq iz (kometa dumi): oxiriga qarab ingichkalashib, xiralashadi
     let drawn = 0;
     for (const b of G.flying) {
       if (!b.tr || b.tr.length < 4 || drawn++ > 220) continue;
       const n = b.tr.length / 2;
-      ctx.strokeStyle = BALL; ctx.lineCap = 'round';
+      ctx.lineCap = 'round';
       for (let i = 0; i < n - 1; i++) {
         const k = (i + 1) / n;
-        ctx.globalAlpha = (S.dark ? 0.5 : 0.6) * k * k;
+        ctx.strokeStyle = k < 0.5 ? TAIL : BALL;
+        ctx.globalAlpha = (S.dark ? 0.55 : 0.7) * k * k;
         ctx.lineWidth = R * 2 * (0.25 + 0.7 * k);
         const x2 = i === n - 2 ? b.x : b.tr[i * 2 + 2], y2 = i === n - 2 ? b.y : b.tr[i * 2 + 3];
         ctx.beginPath(); ctx.moveTo(b.tr[i * 2], b.tr[i * 2 + 1]); ctx.lineTo(x2, y2); ctx.stroke();
@@ -722,7 +731,9 @@
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = BALL;
-    for (const b of G.flying) { ctx.beginPath(); ctx.arc(b.x, b.y, R, 0, Math.PI * 2); ctx.fill(); }
+    if (S.dark) { ctx.shadowColor = 'rgba(255,240,80,.9)'; ctx.shadowBlur = 14 * dpr; }
+    for (const b of G.flying) ballAt(b.x, b.y);
+    ctx.shadowBlur = 0;
     const rest = G.state === 'aim' ? G.balls : G.balls - G.fired;
     ctx.textAlign = 'center';
     if (rest > 0) textAt(`×${rest}`, clamp(G.launchX, 0.3, COLS - 0.3), FLOOR + 0.2, 0.22, C.fg);
@@ -844,8 +855,8 @@
   // =================== Bonuslar oynasi ===================
   const gl = id => `<defs><radialGradient id="${id}"><stop offset="0" stop-color="#e6283c" stop-opacity=".5"/><stop offset="1" stop-color="#e6283c" stop-opacity="0"/></radialGradient></defs><circle cx="26" cy="26" r="25" fill="url(#${id})"/>`;
   const icoDot = () => `<svg viewBox="0 0 52 52">${gl('g1')}<circle cx="26" cy="26" r="7" fill="#e6283c"/></svg>`;
-  const icoRing = n => `<svg viewBox="0 0 52 52">${gl('g' + n)}<defs><linearGradient id="gm${n}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b7c"/><stop offset="1" stop-color="#b5172b"/></linearGradient></defs><polygon points="26,4 48,20 40,48 12,48 4,20" fill="url(#gm${n})"/><polygon points="26,4 48,20 26,26" fill="rgba(255,255,255,.24)"/><polygon points="26,26 40,48 12,48" fill="rgba(0,0,0,.12)"/><text x="26" y="34" font-size="${n >= 100 ? 10 : 13}" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+${n}</text></svg>`;
-  const icoMax = () => `<svg viewBox="0 0 52 52">${gl('gm')}<g fill="rgba(230,40,60,.35)">${[...Array(12)].map((_, k) => `<path d="M24.6 26 L26 1 L27.4 26z" transform="rotate(${k * 30} 26 26)"/>`).join('')}</g><circle cx="26" cy="26" r="17" fill="none" stroke="#b5172b" stroke-width="3"/><circle cx="26" cy="26" r="13.5" fill="none" stroke="#e6283c" stroke-width="2.4"/><circle cx="26" cy="26" r="10.8" fill="none" stroke="#ff8a99" stroke-width="1.8"/><circle cx="26" cy="26" r="9" fill="#e6283c"/><text x="26" y="26" font-size="6.5" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+500</text><text x="26" y="32" font-size="4.6" font-weight="900" fill="#ffd6dc" text-anchor="middle" font-family="system-ui">MAX</text></svg>`;
+  const icoRing = n => `<svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" fill="none" stroke="#e6283c" stroke-width="1.6" opacity=".22"/><circle cx="26" cy="26" r="18" fill="none" stroke="#e6283c" stroke-width="1.8" opacity=".4"/><circle cx="26" cy="26" r="13" fill="#e6283c"/><text x="26" y="30" font-size="${n >= 100 ? 8 : 10.5}" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+${n}</text></svg>`;
+  const icoMax = () => `<svg viewBox="0 0 52 52">${gl('gm')}<g fill="rgba(230,40,60,.35)">${[...Array(12)].map((_, k) => `<path d="M24.6 26 L26 1 L27.4 26z" transform="rotate(${k * 30} 26 26)"/>`).join('')}</g><circle cx="26" cy="26" r="17" fill="none" stroke="#b5172b" stroke-width="3"/><circle cx="26" cy="26" r="13.5" fill="none" stroke="#e6283c" stroke-width="2.4"/><circle cx="26" cy="26" r="10.8" fill="none" stroke="#ff8a99" stroke-width="1.8"/><circle cx="26" cy="26" r="9" fill="#e6283c"/><text x="26" y="26" font-size="6.5" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui">+105</text><text x="26" y="32" font-size="4.6" font-weight="900" fill="#ffd6dc" text-anchor="middle" font-family="system-ui">MAX</text></svg>`;
   const fmt = n => n.toLocaleString(S.lang === 'ru' ? 'ru-RU' : 'en-US');
   function renderBonuses() {
     const st = i => bonusGot.includes(i) ? `<i class="ok">✓ ${t('gotIt')}</i>` : `<i>${t('soon')}</i>`;
